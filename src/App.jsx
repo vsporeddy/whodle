@@ -4,19 +4,34 @@ import { ArrowUp, ArrowDown, Check, Share2, ExternalLink } from 'lucide-react';
 // STYLES
 const styles = {
   container: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', textAlign: 'center', paddingBottom: '50px' },
-  imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-  quoteBox: { background: '#f8f9fa', borderLeft: '5px solid #7289da', padding: '20px', borderRadius: '4px', fontSize: '1.2rem', marginBottom: '20px', fontStyle: 'italic', color: '#2c2f33' },
+  imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
+  
+  // Updated to Discord Embed Style (Darker Grey)
+  quoteBox: { background: '#2b2d31', borderLeft: '4px solid #5865F2', padding: '15px', borderRadius: '4px', fontSize: '1.1rem', marginBottom: '20px', textAlign: 'left', color: '#dbdee1' },
+  
   inputGroup: { position: 'relative', marginBottom: '20px' },
-  input: { width: '100%', padding: '15px', fontSize: '1rem', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' },
-  dropdown: { position: 'absolute', width: '100%', maxHeight: '200px', overflowY: 'auto', background: 'white', border: '1px solid #ccc', borderRadius: '0 0 8px 8px', zIndex: 10, textAlign: 'left', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-  dropdownItem: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #eee' },
+  
+  // Dark Input Field
+  input: { width: '100%', padding: '15px', fontSize: '1rem', borderRadius: '8px', border: 'none', background: '#383a40', color: 'white', outline: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' },
+  
+  // Dark Dropdown
+  dropdown: { position: 'absolute', width: '100%', maxHeight: '200px', overflowY: 'auto', background: '#2b2d31', borderRadius: '0 0 8px 8px', zIndex: 10, textAlign: 'left', boxShadow: '0 4px 6px rgba(0,0,0,0.5)' },
+  dropdownItem: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1e1f22', color: '#dbdee1' },
+  
   grid: { display: 'flex', flexDirection: 'column', gap: '8px' },
   row: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px' },
-  cell: { padding: '10px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', color: 'white', fontWeight: 'bold', boxShadow: '0 2px 2px rgba(0,0,0,0.1)' },
+  
+  // Cells
+  cell: { padding: '10px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', color: 'white', fontWeight: 'bold', boxShadow: '0 2px 2px rgba(0,0,0,0.2)' },
+  
   avatarSmall: { width: '30px', height: '30px', borderRadius: '50%' },
-  btnPrimary: { background: '#5865F2', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' },
+  
+  // Buttons
+  btnPrimary: { background: '#5865F2', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' },
   btnSecondary: { background: '#4f545c', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' },
-  resultsBox: { marginTop: '30px', padding: '20px', background: '#f0f0f0', borderRadius: '8px' }
+  
+  // Dark Results Box
+  resultsBox: { marginTop: '30px', padding: '20px', background: '#2b2d31', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }
 };
 
 const getDailySeed = () => Math.floor(Date.now() / 86400000); 
@@ -35,7 +50,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   
   useEffect(() => {
-    fetch('/game_data.json')
+    fetch('./game_data.json')
       .then(res => res.json())
       .then(json => {
         setData(json);
@@ -139,7 +154,7 @@ const filteredUsers = useMemo(() => {
                   <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', lineHeight:'1.2'}}>
                     {/* Show Nickname as main, display/username as subtext */}
                     <span style={{fontWeight:'bold'}}>{u.nickname}</span>
-                    <span style={{fontSize:'0.8rem', color:'#666'}}>
+                    <span style={{fontSize:'0.8rem', color:'#949BA4'}}> {/* Changed from #666 to #949BA4 */}
                       {u.display_name !== u.nickname ? u.display_name : u.username}
                     </span>
                   </div>
