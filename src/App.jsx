@@ -122,7 +122,7 @@ export default function App() {
 
   const handleShare = () => {
     const dateStr = new Date().toLocaleDateString();
-    let text = `Who Said It? ${dateStr}\n${guesses.length}/6\n\n`;
+    let text = `Who Said It? ${dateStr}\n${guesses.length}/6\n`;
     
     guesses.forEach(g => {
         text += g.correct ? '🟩' : '⬛';
@@ -136,7 +136,7 @@ export default function App() {
         text += '\n';
     });
 
-    text += '\nhttps://vsporeddy.github.io/who-said-it/';
+    text += 'https://vsporeddy.github.io/who-said-it/';
 
     navigator.clipboard.writeText(text);
     setCopied(true);
