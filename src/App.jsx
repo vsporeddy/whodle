@@ -107,7 +107,11 @@ export default function App() {
         text += g.correct ? '🟩' : '⬛';
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
         text += g.joinHint === 'equal' ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
-        text += g.sharedClues.length > 0 ? '🟨' : '⬛';
+        if (g.correct) {
+            text += '🟩';
+        } else {
+            text += g.sharedClues.length > 0 ? '🟨' : '⬛';
+        }
         text += '\n';
     });
 
@@ -217,41 +221,37 @@ function GuessRow({ guess }) {
   const YELLOW = '#f0b232';
   const GREY = '#4e5058';
 
-  // Helper logic: If the specific cell matches, use Yellow. 
-  // BUT: If the user is correct (guess.correct), override everything to GREEN.
-  
   return (
     <div style={styles.row}>
-      {/* 1. Name Cell */}
       <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px'}}>
         <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
         {guess.user.nickname}
       </div>
 
-      {/* 2. Rank Cell */}
       <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.rankHint === 'equal' ? YELLOW : GREY)}}>
         {guess.rankHint === 'equal' ? <Check size={16}/> : 
          guess.rankHint === 'higher' ? <ArrowUp size={16}/> : 
          <ArrowDown size={16}/>}
       </div>
 
-      {/* 3. Join Cell */}
       <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinHint === 'equal' ? YELLOW : GREY)}}>
         {guess.joinHint === 'equal' ? <Check size={16}/> : 
          guess.joinHint === 'earlier' ? <span>Earlier</span> : 
          <span>Later</span>}
       </div>
 
-      {/* 4. Roles Cell */}
       <div style={{
         ...styles.cell, 
-        // If correct -> Green. Else if shared clues exist -> Yellow. Else -> Grey.
         background: guess.correct ? GREEN : (guess.sharedClues.length > 0 ? YELLOW : GREY), 
         fontSize: '0.6rem', 
         flexDirection:'column', 
-        lineHeight:'1'
+        lineHeight:'1.1',         // Slightly increased line height for readability
+        textAlign: 'center',      // Centers text if it wraps
+        wordBreak: 'break-word',  // Ensures long words don't overflow
+        padding: '5px'            // Reduced padding to fit more text
       }}>
-        {guess.sharedClues.length > 0 ? guess.sharedClues.slice(0,2).join(', ') : "-"}
+        {/* UPDATED: now slicing 0 to 5 */}
+        {guess.sharedClues.length > 0 ? guess.sharedClues.slice(0,5).join(', ') : "-"}
       </div>
     </div>
   );
