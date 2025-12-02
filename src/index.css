@@ -1,0 +1,29 @@
+:root {
+  font-family: 'gg sans', 'Inter', system-ui, sans-serif; /* 'gg sans' is discord's font, falls back to others */
+  line-height: 1.5;
+  font-weight: 400;
+  
+  /* Discord Dark Theme Colors */
+  color-scheme: dark;
+  background-color: #313338; 
+  color: #dbdee1;
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 100vw;
+  min-height: 100vh;
+  display: block;
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
