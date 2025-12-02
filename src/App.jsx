@@ -20,12 +20,32 @@ const styles = {
   resultsBox: { marginTop: '30px', padding: '20px', background: '#2b2d31', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }
 };
 
-const getDailySeed = () => Math.floor(Date.now() / 86400000); 
+const getDailySeed = () => {
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    const char = dateStr.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
 
 const seededRandom = (seed) => {
   const x = Math.sin(seed++) * 10000;
   return x - Math.floor(x);
 };
+
+const mulberry32 = (a) => {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
 
 export default function App() {
   const [data, setData] = useState(null);
@@ -41,7 +61,8 @@ export default function App() {
       .then(json => {
         setData(json);
         const seed = getDailySeed();
-        const randIndex = Math.floor(seededRandom(seed) * json.messages.length);
+        const rng = mulberry32(seed); 
+        const randIndex = Math.floor(rng() * json.messages.length);
         setTargetMsg(json.messages[randIndex]);
 
         const savedState = localStorage.getItem('whosaidit_state');
