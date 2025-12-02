@@ -100,11 +100,6 @@ export default function App() {
   };
 
   const handleShare = () => {
-    // 1. Header: "Who Said It? [Date]"
-    // 2. Score: "X/6"
-    // 3. Grid
-    // 4. URL
-    
     const dateStr = new Date().toLocaleDateString();
     let text = `Who Said It? ${dateStr}\n${guesses.length}/6\n\n`;
     
@@ -218,29 +213,44 @@ export default function App() {
 }
 
 function GuessRow({ guess }) {
-  const getCellColor = (isCorrect) => isCorrect ? '#23a559' : '#4e5058'; 
-  const getPartialColor = (isClose) => isClose ? '#f0b232' : '#4e5058'; 
+  const GREEN = '#23a559';
+  const YELLOW = '#f0b232';
+  const GREY = '#4e5058';
 
+  // Helper logic: If the specific cell matches, use Yellow. 
+  // BUT: If the user is correct (guess.correct), override everything to GREEN.
+  
   return (
     <div style={styles.row}>
-      <div style={{...styles.cell, background: getCellColor(guess.correct), justifyContent: 'flex-start', gap: '10px'}}>
+      {/* 1. Name Cell */}
+      <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px'}}>
         <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
         {guess.user.nickname}
       </div>
 
-      <div style={{...styles.cell, background: getPartialColor(guess.rankHint === 'equal')}}>
+      {/* 2. Rank Cell */}
+      <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.rankHint === 'equal' ? YELLOW : GREY)}}>
         {guess.rankHint === 'equal' ? <Check size={16}/> : 
          guess.rankHint === 'higher' ? <ArrowUp size={16}/> : 
          <ArrowDown size={16}/>}
       </div>
 
-      <div style={{...styles.cell, background: getPartialColor(guess.joinHint === 'equal')}}>
+      {/* 3. Join Cell */}
+      <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinHint === 'equal' ? YELLOW : GREY)}}>
         {guess.joinHint === 'equal' ? <Check size={16}/> : 
          guess.joinHint === 'earlier' ? <span>Earlier</span> : 
          <span>Later</span>}
       </div>
 
-      <div style={{...styles.cell, background: guess.sharedClues.length > 0 ? '#f0b232' : '#4e5058', fontSize: '0.6rem', flexDirection:'column', lineHeight:'1'}}>
+      {/* 4. Roles Cell */}
+      <div style={{
+        ...styles.cell, 
+        // If correct -> Green. Else if shared clues exist -> Yellow. Else -> Grey.
+        background: guess.correct ? GREEN : (guess.sharedClues.length > 0 ? YELLOW : GREY), 
+        fontSize: '0.6rem', 
+        flexDirection:'column', 
+        lineHeight:'1'
+      }}>
         {guess.sharedClues.length > 0 ? guess.sharedClues.slice(0,2).join(', ') : "-"}
       </div>
     </div>
