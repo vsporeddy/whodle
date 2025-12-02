@@ -70,4 +70,172 @@ export default function App() {
       u.username.toLowerCase().includes(searchStr) || 
       u.nickname.toLowerCase().includes(searchStr) || 
       u.display_name.toLowerCase().includes(searchStr)
-    ).slice(0, 5);
+    ).slice(0, 5); // You might want to increase this limit slightly if you have many blocked users appearing
+  }, [data, input]);
+
+  const handleGuess = (user) => {
+    if (gameOver) return;
+    
+    // Prevent Duplicate Guesses
+    if (guesses.some(g => g.user.id === user.id)) return;
+
+    const targetUser = data.users[targetMsg.author_id];
+    
+    const rankDir = user.rank_val === targetUser.rank_val ? 'equal' : (user.rank_val > targetUser.rank_val ? 'higher' : 'lower');
+    const joinDir = user.joined_at === targetUser.joined_at ? 'equal' : (user.joined_at > targetUser.joined_at ? 'earlier' : 'later');
+
+    const newGuess = {
+      user: user,
+      correct: user.id === targetUser.id,
+      rankHint: rankDir,
+      joinHint: joinDir,
+      sharedClues: user.clues.filter(c => targetUser.clues.includes(c))
+    };
+
+    const updatedGuesses = [...guesses, newGuess];
+    setGuesses(updatedGuesses);
+    setInput('');
+    
+    if (newGuess.correct || updatedGuesses.length >= 6) {
+      setGameOver(true);
+    }
+  };
+
+  const handleShare = () => {
+    let text = `Who Said It? ${new Date().toLocaleDateString()} - ${guesses.length}/6\n\n`;
+    guesses.forEach(g => {
+        text += g.correct ? '🟩' : '⬛';
+        text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
+        text += g.joinHint === 'equal' ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+        text += g.sharedClues.length > 0 ? '🟨' : '⬛';
+        text += '\n';
+    });
+    text += '\nhttps://vsporeddy.github.io/who-said-it/';
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getDiscordLink = () => {
+    if (!data || !targetMsg) return '#';
+    return `https://discord.com/channels/${data.meta.guild_id}/${targetMsg.channel_id}/${targetMsg.msg_id}`;
+  };
+
+  if (!data || !targetMsg) return <div style={{padding:'20px', color:'white'}}>Loading...</div>;
+
+  return (
+    <div style={styles.container}>
+      <h1>Who Said It?</h1>
+      
+      {targetMsg.type === 'image' ? (
+        <img src={targetMsg.content} style={styles.imagePreview} alt="Puzzle" />
+      ) : (
+        <div style={styles.quoteBox}>"{targetMsg.content}"</div>
+      )}
+
+      {/* INPUT */}
+      {!gameOver && (
+        <div style={styles.inputGroup}>
+          <input 
+            style={styles.input}
+            placeholder="Type a name..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          {input && (
+            <div style={styles.dropdown}>
+              {filteredUsers.map(u => {
+                const isGuessed = guesses.some(g => g.user.id === u.id);
+                return (
+                  <div 
+                    key={u.id} 
+                    style={isGuessed ? styles.disabledItem : styles.dropdownItem} 
+                    onClick={() => !isGuessed && handleGuess(u)}
+                  >
+                    <img src={u.avatar} style={styles.avatarSmall} alt="" />
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', lineHeight:'1.2'}}>
+                      <span style={{fontWeight:'bold'}}>
+                        {u.nickname} {isGuessed && "(Already Guessed)"}
+                      </span>
+                      <span style={{fontSize:'0.8rem', color:'#949BA4'}}>
+                        {u.display_name !== u.nickname ? u.display_name : u.username}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GRID */}
+      <div style={styles.grid}>
+        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:'5px', fontSize:'0.8rem', opacity: 0.7, marginBottom:'5px', color:'#dbdee1'}}>
+            <span>User</span>
+            <span>Rank</span>
+            <span>Joined</span>
+            <span>Roles</span>
+        </div>
+        {guesses.map((g, i) => (
+          <GuessRow key={i} guess={g} />
+        ))}
+      </div>
+
+      {/* GAME OVER UI */}
+      {gameOver && (
+        <div style={styles.resultsBox}>
+          <h2 style={{marginTop:0}}>{guesses[guesses.length-1].correct ? "Nailed it!" : "Game Over"}</h2>
+          
+          <div style={{marginBottom: '20px'}}>
+            The message was sent by: <br/>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', marginTop:'10px'}}>
+                <img src={data.users[targetMsg.author_id].avatar} style={styles.avatarSmall} alt=""/>
+                <strong>{data.users[targetMsg.author_id].nickname}</strong>
+            </div>
+          </div>
+
+          <div style={{display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap'}}>
+            <button onClick={handleShare} style={styles.btnPrimary}>
+              <Share2 size={18} /> {copied ? "Copied!" : "Share Result"}
+            </button>
+            
+            <a href={getDiscordLink()} target="_blank" rel="noopener noreferrer" style={styles.btnSecondary}>
+              <ExternalLink size={18} /> Jump to Message
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GuessRow({ guess }) {
+  const getCellColor = (isCorrect) => isCorrect ? '#23a559' : '#4e5058'; 
+  const getPartialColor = (isClose) => isClose ? '#f0b232' : '#4e5058'; 
+
+  return (
+    <div style={styles.row}>
+      <div style={{...styles.cell, background: getCellColor(guess.correct), justifyContent: 'flex-start', gap: '10px'}}>
+        <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
+        {guess.user.nickname}
+      </div>
+
+      <div style={{...styles.cell, background: getPartialColor(guess.rankHint === 'equal')}}>
+        {guess.rankHint === 'equal' ? <Check size={16}/> : 
+         guess.rankHint === 'higher' ? <ArrowUp size={16}/> : 
+         <ArrowDown size={16}/>}
+      </div>
+
+      <div style={{...styles.cell, background: getPartialColor(guess.joinHint === 'equal')}}>
+        {guess.joinHint === 'equal' ? <Check size={16}/> : 
+         guess.joinHint === 'earlier' ? <span>Earlier</span> : 
+         <span>Later</span>}
+      </div>
+
+      <div style={{...styles.cell, background: guess.sharedClues.length > 0 ? '#f0b232' : '#4e5058', fontSize: '0.6rem', flexDirection:'column', lineHeight:'1'}}>
+        {guess.sharedClues.length > 0 ? guess.sharedClues.slice(0,2).join(', ') : "-"}
+      </div>
+    </div>
+  );
+}
