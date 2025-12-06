@@ -28,7 +28,7 @@ const styles = {
   guessCounter: { fontSize: '0.9rem', color: '#949BA4', marginBottom: '20px', marginTop: '5px' }
 };
 
-// 1. IMPROVED SEED GEN (Based on Local Time)
+// Seed gen based on local time
 const getDailySeed = () => {
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
@@ -42,7 +42,7 @@ const getDailySeed = () => {
   return Math.abs(hash) + 1;
 };
 
-// 2. IMPROVED RANDOM (Mulberry32)
+// Mulberry32 PRNG
 const mulberry32 = (a) => {
     return function() {
       var t = a += 0x6D2B79F5;
@@ -91,14 +91,38 @@ export default function App() {
     }));
   }, [guesses, gameOver, targetMsg]);
 
-  const filteredUsers = useMemo(() => {
+const filteredUsers = useMemo(() => {
     if (!data || !input) return [];
     const searchStr = input.toLowerCase();
-    return Object.values(data.users).filter(u => 
+    
+    // 1. Find all matches (Contains)
+    const matches = Object.values(data.users).filter(u => 
       u.username.toLowerCase().includes(searchStr) || 
       u.nickname.toLowerCase().includes(searchStr) || 
       u.display_name.toLowerCase().includes(searchStr)
-    ).slice(0, 5);
+    );
+
+    // 2. Sort matches to prioritize "Starts With" and Shorter Names
+    matches.sort((a, b) => {
+      // Helper: Get best match quality for a user (0 = Exact, 1 = Starts With, 2 = Contains)
+      const getScore = (u) => {
+        const names = [u.username, u.nickname, u.display_name].map(n => n.toLowerCase());
+        if (names.some(n => n === searchStr)) return 0; // Exact match
+        if (names.some(n => n.startsWith(searchStr))) return 1; // Starts with
+        return 2; // Contains
+      };
+
+      const scoreA = getScore(a);
+      const scoreB = getScore(b);
+
+      // Priority 1: Match Quality
+      if (scoreA !== scoreB) return scoreA - scoreB;
+
+      // Priority 2: Name Length
+      return a.nickname.length - b.nickname.length;
+    });
+
+    return matches.slice(0, 5);
   }, [data, input]);
 
   const handleGuess = (user) => {
