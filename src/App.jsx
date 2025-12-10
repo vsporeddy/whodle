@@ -120,7 +120,7 @@ export default function App() {
       return a.nickname.length - b.nickname.length;
     });
 
-    return matches.slice(0, 5);
+    return matches;
   }, [data, input]);
 
   const handleGuess = (user) => {
