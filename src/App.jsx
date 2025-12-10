@@ -230,9 +230,7 @@ export default function App() {
                         <span style={{fontWeight:'bold'}}>
                           {u.nickname} {isGuessed && "(Already Guessed)"}
                         </span>
-                        <span style={{fontSize:'0.8rem', color:'#949BA4'}}>
-                          {u.display_name !== u.nickname ? u.display_name : u.username}
-                        </span>
+                        <span><span style={{fontSize:'0.8rem', color:'#949BA4'}}>{u.display_name}</span> <small style={{color: '#666'}}>({u.username})</small></span>
                       </div>
                     </div>
                   );
