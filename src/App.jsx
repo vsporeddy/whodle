@@ -228,6 +228,37 @@ export default function App() {
 
   const guessesRemaining = MAX_GUESSES - guesses.length;
 
+  const formatMessageContent = (text) => {
+    if (!text) return null;
+
+    const regex = /(<@!?\d+>)/g;
+    
+    return text.split(regex).map((part, i) => {
+      const match = part.match(/<@!?(\d+)>/);
+      if (match) {
+        const userId = match[1];
+        const user = data.users[userId];
+        const displayName = user ? `@${user.nickname}` : "@User";
+
+        return (
+          <span 
+            key={i} 
+            style={{
+              color: '#5865F2',
+              backgroundColor: '#5865F21A',
+              borderRadius: '3px',
+              padding: '0 2px',
+              fontWeight: '500'
+            }}
+          >
+            {displayName}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div style={styles.container}>
       <h1>Who Said It?</h1>
@@ -246,7 +277,9 @@ export default function App() {
       {targetMsg.type === 'image' ? (
         <img src={targetMsg.content} style={styles.imagePreview} alt="Puzzle" />
       ) : (
-        <div style={styles.quoteBox}>"{targetMsg.content}"</div>
+        <div style={styles.quoteBox}>
+          "{formatMessageContent(targetMsg.content)}"
+        </div>
       )}
 
       {/* INPUT */}
@@ -319,7 +352,7 @@ export default function App() {
 
           {targetMsg.imposter_id && (
             <p style={{fontSize: '0.9rem', color: '#666'}}>
-              (Fun Fact: The AI thought this was <b>{data.users[targetMsg.imposter_id].nickname}</b>)
+              Fun Fact: The AI thought this was <b>{data.users[targetMsg.imposter_id].nickname} ({data.users[targetMsg.imposter_id].display_name})</b>
             </p>
           )}
 
