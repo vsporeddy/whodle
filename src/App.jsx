@@ -205,7 +205,7 @@ export default function App() {
     
     guesses.forEach(g => {
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
-        text += g.joinYearMatch ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+        text += g.joinYearMatch ? '🟨' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
         if (g.correct) {
             text += '🟩';
         } else {
@@ -410,7 +410,7 @@ export default function App() {
           <ArrowDown size={16}/>}
         </div>
 
-        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinYearMatch ? GREEN : GREY)}}>
+        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinYearMatch ? YELLOW : GREY)}}>
           {guess.joinYearMatch ? <span>{guess.joinYear}</span> : 
           guess.joinHint === 'equal' ? <Check size={16}/> : 
           guess.joinHint === 'earlier' ? <span>Earlier</span> : 
