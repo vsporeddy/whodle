@@ -209,7 +209,7 @@ export default function App() {
         if (g.correct) {
             text += '🟩';
         } else {
-            text += g.roleSimilarity > 60 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
+            text += g.roleSimilarity == 100 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
         }
         text += '\n';
     });
@@ -419,7 +419,7 @@ export default function App() {
 
         <div style={{
           ...styles.cell, 
-          background: guess.correct ? GREEN : (guess.roleSimilarity > 60 ? GREEN : (guess.roleSimilarity > 30 ? YELLOW : GREY)), 
+          background: guess.correct ? GREEN : (guess.roleSimilarity == 100 ? GREEN : (guess.roleSimilarity > 30 ? YELLOW : GREY)), 
           fontSize: guess.guessIndex < 3 ? '0.9rem' : '0.6rem', 
           flexDirection:'column', 
           lineHeight:'1.1',
