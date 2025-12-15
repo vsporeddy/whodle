@@ -205,7 +205,7 @@ export default function App() {
     
     guesses.forEach(g => {
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
-        text += g.joinYearMatch ? '🟨' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+        text += g.correct ? '🟩' : g.joinYearMatch ? '🟨' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
         if (g.correct) {
             text += '🟩';
         } else {
