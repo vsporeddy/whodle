@@ -52,10 +52,14 @@ const styles = {
   }
 };
 
-// Seed gen based on local time
+// Seed gen based on Eastern time
 const getDailySeed = () => {
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const dateStr = new Date().toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  }); 
   
   let hash = 0;
   for (let i = 0; i < dateStr.length; i++) {
