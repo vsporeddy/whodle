@@ -52,15 +52,15 @@ const styles = {
   }
 };
 
+const dateStr = new Date().toLocaleDateString("en-US", {
+  timeZone: "America/New_York",
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric'
+}); 
+
 // Seed gen based on Eastern time
 const getDailySeed = () => {
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    timeZone: "America/New_York",
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric'
-  }); 
-  
   let hash = 0;
   for (let i = 0; i < dateStr.length; i++) {
     const char = dateStr.charCodeAt(i);
@@ -198,9 +198,7 @@ export default function App() {
     }
   };
 
-  const handleShare = () => {
-    const dateStr = new Date().toLocaleDateString();
-    
+  const handleShare = () => {    
     const lastGuess = guesses[guesses.length - 1];
     const isWin = lastGuess && lastGuess.correct;
     const score = isWin ? guesses.length : 'X';
