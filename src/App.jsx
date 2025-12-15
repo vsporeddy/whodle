@@ -160,17 +160,29 @@ export default function App() {
     if (gameOver) return;
     if (guesses.some(g => g.user.id === user.id)) return;
 
+    const guessIndex = guesses.length;
+
     const targetUser = data.users[targetMsg.author_id];
     
     const rankDir = user.rank_val === targetUser.rank_val ? 'equal' : (user.rank_val > targetUser.rank_val ? 'higher' : 'lower');
     const joinDir = user.joined_at === targetUser.joined_at ? 'equal' : (user.joined_at > targetUser.joined_at ? 'earlier' : 'later');
+
+    const guessYear = new Date(user.joined_at * 1000).getFullYear();
+    const targetYear = new Date(targetUser.joined_at * 1000).getFullYear();
+    const isSameYear = guessYear === targetYear;
+
+    const roleSimilarity = calculateSimilarity(user, targetUser);
 
     const newGuess = {
       user: user,
       correct: user.id === targetUser.id,
       rankHint: rankDir,
       joinHint: joinDir,
-      sharedClues: user.clues.filter(c => targetUser.clues.includes(c))
+      joinYearMatch: isSameYear,
+      joinYear: guessYear,
+      guessIndex: guessIndex,
+      sharedClues: user.clues.filter(c => targetUser.clues.includes(c)),
+      roleSimilarity: roleSimilarity
     };
 
     const updatedGuesses = [...guesses, newGuess];
@@ -192,13 +204,12 @@ export default function App() {
     let text = `Who Said It? ${dateStr} (${targetMsg.difficulty.label})\n${score}/${MAX_GUESSES}\n`;
     
     guesses.forEach(g => {
-        text += g.correct ? '🟩' : '⬛';
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
-        text += g.joinHint === 'equal' ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+        text += g.joinYearMatch ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
         if (g.correct) {
             text += '🟩';
         } else {
-            text += g.sharedClues.length > 0 ? '🟨' : '⬛';
+            text += g.roleSimilarity > 60 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
         }
         text += '\n';
     });
@@ -328,7 +339,7 @@ export default function App() {
               <span>User</span>
               <span>Rank</span>
               <span>Joined</span>
-              <span>Roles</span>
+              <span>Shared Roles</span>
           </div>
         )}
         
@@ -369,44 +380,57 @@ export default function App() {
       )}
     </div>
   );
-}
+  
+  function calculateSimilarity(guessUser, targetUser) {
+    const guessRoles = guessUser.clues;
+    const targetRoles = targetUser.clues;
 
-function GuessRow({ guess }) {
-  const GREEN = '#23a559';
-  const YELLOW = '#f0b232';
-  const GREY = '#4e5058';
+    if (guessRoles.length === 0 && targetRoles.length === 0) return 100;
+    const shared = guessRoles.filter(role => targetRoles.includes(role));
+    const uniqueRoles = new Set([...guessRoles, ...targetRoles]);
+    const percentage = (shared.length / uniqueRoles.size) * 100;
+    return Math.round(percentage);
+  }
 
-  return (
-    <div style={styles.row}>
-      <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px'}}>
-        <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
-        {guess.user.nickname}
+  function GuessRow({ guess }) {
+    const GREEN = '#23a559';
+    const YELLOW = '#f0b232';
+    const GREY = '#4e5058';
+
+    return (
+      <div style={styles.row}>
+        <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px'}}>
+          <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
+          {guess.user.nickname}
+        </div>
+
+        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.rankHint === 'equal' ? GREEN : GREY)}}>
+          {guess.rankHint === 'equal' ? <Check size={16}/> : 
+          guess.rankHint === 'higher' ? <ArrowUp size={16}/> : 
+          <ArrowDown size={16}/>}
+        </div>
+
+        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinYearMatch ? GREEN : GREY)}}>
+          {guess.joinYearMatch ? <span>{guess.joinYear}</span> : 
+          guess.joinHint === 'equal' ? <Check size={16}/> : 
+          guess.joinHint === 'earlier' ? <span>Earlier</span> : 
+          <span>Later</span>}
+        </div>
+
+        <div style={{
+          ...styles.cell, 
+          background: guess.correct ? GREEN : (guess.roleSimilarity > 60 ? GREEN : (guess.roleSimilarity > 30 ? YELLOW : GREY)), 
+          fontSize: guess.guessIndex < 3 ? '0.9rem' : '0.6rem', 
+          flexDirection:'column', 
+          lineHeight:'1.1',
+          textAlign: 'center',
+          wordBreak: 'break-word',
+          padding: '5px'
+        }}>
+          {guess.guessIndex < 3 ? guess.roleSimilarity + '%' :
+          guess.sharedClues.length > 0 ? guess.sharedClues.join(', ') : "-"}
+        </div>
       </div>
-
-      <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.rankHint === 'equal' ? YELLOW : GREY)}}>
-        {guess.rankHint === 'equal' ? <Check size={16}/> : 
-         guess.rankHint === 'higher' ? <ArrowUp size={16}/> : 
-         <ArrowDown size={16}/>}
-      </div>
-
-      <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinHint === 'equal' ? YELLOW : GREY)}}>
-        {guess.joinHint === 'equal' ? <Check size={16}/> : 
-         guess.joinHint === 'earlier' ? <span>Earlier</span> : 
-         <span>Later</span>}
-      </div>
-
-      <div style={{
-        ...styles.cell, 
-        background: guess.correct ? GREEN : (guess.sharedClues.length > 0 ? YELLOW : GREY), 
-        fontSize: '0.6rem', 
-        flexDirection:'column', 
-        lineHeight:'1.1',
-        textAlign: 'center',
-        wordBreak: 'break-word',
-        padding: '5px'
-      }}>
-        {guess.sharedClues.length > 0 ? guess.sharedClues.slice(0,5).join(', ') : "-"}
-      </div>
-    </div>
-  );
+    );
+  }
 }
