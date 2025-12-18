@@ -62,7 +62,7 @@ def main():
         days_old = (today - msg_dt).days
         age_score = 0
         if days_old < 365: age_score = -1   # Recent (within the last year)
-        elif days_old > 365*3: age_score = 1  # Old  (over 3 years ago)
+        elif days_old > 365*3: age_score = 2  # Old  (over 3 years ago)
 
         # 2. Channel-based Difficulty
         chan_score = 0
@@ -73,7 +73,7 @@ def main():
         len_score = 0
         w_len = len(msg['content'].split())
         if w_len <= 12: len_score = 1  # Short (<12 words)
-        elif w_len > 30: len_score = -1 # Long (>30 words)
+        elif w_len > 30: len_score = -2 # Long (>30 words)
 
         msg['calc_age_score'] = age_score
         msg['calc_chan_score'] = chan_score
@@ -129,7 +129,7 @@ def main():
             # + Length (-1 to +1)
             # + AI Offset (Mapped from 1-10 scale to approx -3 to +3)
             
-            ai_offset = (ai_score - 5) * 0.7 
+            ai_offset = (ai_score - 5) * 0.4 
             
             final_raw = 5 + msg['calc_age_score'] + msg['calc_chan_score'] + msg['calc_len_score'] + ai_offset
             
