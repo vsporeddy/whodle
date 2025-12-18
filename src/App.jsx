@@ -93,7 +93,7 @@ const getUserEmoji = (username) => {
   if (!username) return '||🤠||';
   switch (username) {
     case 'r0ffles': return '||:RofflesTeemo:||';
-    case 'dvrx': return '||:dvrxPoint:||';
+    case 'dvrx': return '||:dvrxApproved:||';
     case 'strawberryhoney': return '||:StrawberryKek:||';
     case 'asura_of_war': return '||:BusyThatDay:||';
     case 'iron.urn': return '||:IronUrn:||';
