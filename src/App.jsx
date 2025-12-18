@@ -89,6 +89,31 @@ const getDifficultyColor = (label) => {
   }
 };
 
+const getUserEmoji = (username) => {
+  if (!username) return '||🤠||';
+  switch (username) {
+    case 'r0ffles': return '||:RofflesTeemo:||';
+    case 'dvrx': return '||:dvrxPoint:||';
+    case 'strawberryhoney': return '||:StrawberryKek:||';
+    case 'asura_of_war': return '||:BusyThatDay:||';
+    case 'iron.urn': return '||:IronUrn:||';
+    case 'mrshu': return '||:paperliskpog:||';
+    case 'infinitori_': return '||:birb:||';
+    case 'zalteo': return '||:Zalteo:||';
+    case 'bcguy390': return '||:sus:||';
+    case 'tothemoonn': return '||:audacity:||';
+    case 'doncha7': return '||:DonchaHowdy:||';
+    case 'oxray': return '||:0xFEDORA:||';
+    case 'phantah': return '||:PhantahBrim:||';
+    case 'coldchowder': return '||:ChowderWut:||';
+    case 'dudeman27': return '||:DudemanEZ:||';
+    case 'spatika': return '||:frick:||';
+    case 'misder': return '||:Misder:||';
+    case 'timmy.tam' : return '||:TimmahSuh:||';
+    default: return '||🤠||';
+  }
+};
+
 export default function App() {
   const [data, setData] = useState(null);
   const [targetMsg, setTargetMsg] = useState(null);
@@ -206,6 +231,7 @@ export default function App() {
     let text = `Who Said It? ${dateStr} (${targetMsg.difficulty.label})\n${score}/${MAX_GUESSES}\n`;
     
     guesses.forEach(g => {
+        text += getUserEmoji(g.user.username);
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
         text += g.correct ? '🟩' : g.joinYearMatch ? '🟨' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
         if (g.correct) {
