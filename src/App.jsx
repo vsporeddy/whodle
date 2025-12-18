@@ -10,6 +10,7 @@ const LOSE_MESSAGES = ["Yikes.", "Bro??", "Skill Issue?", "Uhhh...", "Frick!"];
 
 // STYLES (Discord Dark Theme)
 const styles = {
+  title: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '10px', textShadow: '-5px 5px 10px rgba(0, 0, 0, 0.75)' },
   container: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', textAlign: 'center', paddingBottom: '50px' },
   imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
   quoteBox: { background: '#2b2d31', borderLeft: '4px solid #5865F2', padding: '15px', borderRadius: '4px', fontSize: '1.1rem', marginBottom: '20px', textAlign: 'left', color: '#dbdee1' },
