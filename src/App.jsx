@@ -90,26 +90,27 @@ const getDifficultyColor = (label) => {
 };
 
 const getUserEmoji = (username) => {
+  // Maintain alphabetical order
   if (!username) return '||🤠||';
   switch (username) {
-    case 'r0ffles': return '||:RofflesTeemo:||';
-    case 'dvrx': return '||:dvrxApproved:||';
-    case 'strawberryhoney': return '||:StrawberryKek:||';
     case 'asura_of_war': return '||:BusyThatDay:||';
-    case 'iron.urn': return '||:IronUrn:||';
-    case 'mrshu': return '||:paperliskpog:||';
-    case 'infinitori_': return '||:birb:||';
-    case 'zalteo': return '||:Zalteo:||';
     case 'bcguy390': return '||:sus:||';
-    case 'tothemoonn': return '||:audacity:||';
+    case 'coldchowder': return '||:ChowderWut:||';
     case 'doncha7': return '||:DonchaHowdy:||';
+    case 'dudeman27': return '||:DudemanEZ:||';
+    case 'dvrx': return '||:dvrxApproved:||';
+    case 'infinitori_': return '||:birb:||';
+    case 'iron.urn': return '||:IronUrn:||';
+    case 'misder': return '||:Misder:||';
+    case 'mrshu': return '||:paperliskpog:||';
     case 'oxray': return '||:0xFEDORA:||';
     case 'phantah': return '||:PhantahBrim:||';
-    case 'coldchowder': return '||:ChowderWut:||';
-    case 'dudeman27': return '||:DudemanEZ:||';
+    case 'r0ffles': return '||:RofflesTeemo:||';
     case 'spatika': return '||:frick:||';
-    case 'misder': return '||:Misder:||';
+    case 'strawberryhoney': return '||:StrawberryKek:||';
     case 'timmy.tam' : return '||:TimmahSuh:||';
+    case 'tothemoonn': return '||:audacity:||';
+    case 'zalteo': return '||:Zalteo:||';
     default: return '||🤠||';
   }
 };
