@@ -33,7 +33,7 @@ const styles = {
     fontSize: '0.8rem',
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: '10px',
+    marginBottom: '30px',
     textTransform: 'uppercase',
     letterSpacing: '1px'
   },
@@ -82,10 +82,10 @@ const mulberry32 = (a) => {
 
 const getDifficultyColor = (label) => {
   switch(label) {
-    case 'Easy': return '#6aaa64';   // Green
-    case 'Medium': return '#c9b458'; // Yellow
-    case 'Hard': return '#e57373';   // Red
-    default: return '#787c7e';
+    case 'Easy': return 'rgba(106, 170, 100, 0.3)'; 
+    case 'Medium': return 'rgba(201, 180, 88, 0.3)';
+    case 'Hard': return 'rgba(229, 115, 115, 0.3)';
+    default: return 'rgba(120, 124, 126, 0.3)';
   }
 };
 
@@ -274,15 +274,14 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <h1>Who Said It?</h1>
-      
+      <h1 style={styles.title}>WHO SAID IT?</h1>
       {/* DIFFICULTY */}
       {targetMsg.difficulty && (
         <div style={{
           ...styles.difficultyBadge, 
           backgroundColor: getDifficultyColor(targetMsg.difficulty.label)
         }}>
-          {targetMsg.difficulty.label}
+          <b>{dateStr}</b>: {targetMsg.difficulty.label}
         </div>
       )}
 
