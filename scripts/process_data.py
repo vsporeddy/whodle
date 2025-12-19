@@ -70,10 +70,12 @@ def main():
             chan_score = CHANNEL_DIFFICULTY.get(msg['channel_id'], 0)
 
         # 3. Length-based Difficulty
-        len_score = 0
-        w_len = len(msg['content'].split())
-        if w_len <= 12: len_score = 1  # Short (<12 words)
-        elif w_len > 30: len_score = -2 # Long (>30 words)
+        if msg['type'] == 'text':
+            w_len = len(msg['content'].split())
+            if w_len <= 12: len_score = 1   # Short/Punchy = Harder context
+            elif w_len > 30: len_score = -1 # Long rant = Easier context
+        else:
+            len_score = 3
 
         msg['calc_age_score'] = age_score
         msg['calc_chan_score'] = chan_score
@@ -103,6 +105,10 @@ def main():
         print("Calculating AI Difficulty for each message...")
 
         for msg in clean_messages:
+            if msg['type'] != 'text':
+                msg['difficulty_val'] = 8.5 # Default high diff for images
+                msg['difficulty_label'] = "Hard"
+                continue
             # Predict probability
             probs = model.predict_proba([msg['content']])[0]
             
@@ -139,7 +145,7 @@ def main():
             # Label
             label = "Medium"
             if final_score <= 3: label = "Easy"
-            elif final_score >= 8: label = "Hard" # 8-10 is Hard
+            elif final_score >= 8.5: label = "Hard" # 8.5-10 is Hard
             
             # Clean up temporary fields so JSON isn't huge
             del msg['calc_age_score']

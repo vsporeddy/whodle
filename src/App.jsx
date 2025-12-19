@@ -198,10 +198,6 @@ export default function App() {
     const rankDir = user.rank_val === targetUser.rank_val ? 'equal' : (user.rank_val > targetUser.rank_val ? 'higher' : 'lower');
     const joinDir = user.joined_at === targetUser.joined_at ? 'equal' : (user.joined_at > targetUser.joined_at ? 'earlier' : 'later');
 
-    const guessYear = new Date(user.joined_at * 1000).getFullYear();
-    const targetYear = new Date(targetUser.joined_at * 1000).getFullYear();
-    const isSameYear = guessYear === targetYear;
-
     const roleSimilarity = calculateSimilarity(user, targetUser);
 
     const newGuess = {
@@ -209,8 +205,6 @@ export default function App() {
       correct: user.id === targetUser.id,
       rankHint: rankDir,
       joinHint: joinDir,
-      joinYearMatch: isSameYear,
-      joinYear: guessYear,
       guessIndex: guessIndex,
       sharedClues: user.clues.filter(c => targetUser.clues.includes(c)),
       roleSimilarity: roleSimilarity
@@ -235,7 +229,7 @@ export default function App() {
     guesses.forEach(g => {
         text += getUserEmoji(g.user.username);
         text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
-        text += g.correct ? '🟩' : g.joinYearMatch ? '🟨' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+        text += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
         if (g.correct) {
             text += '🟩';
         } else {
@@ -439,9 +433,8 @@ export default function App() {
           <ArrowDown size={16}/>}
         </div>
 
-        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinYearMatch ? YELLOW : GREY)}}>
-          {guess.joinYearMatch ? <span>{guess.joinYear}</span> : 
-          guess.joinHint === 'equal' ? <Check size={16}/> : 
+        <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinHint === 'equal' ? YELLOW : GREY)}}>
+          {guess.joinHint === 'equal' ? <Check size={16}/> : 
           guess.joinHint === 'earlier' ? <span>Earlier</span> : 
           <span>Later</span>}
         </div>
