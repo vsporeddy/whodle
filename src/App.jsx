@@ -10,7 +10,8 @@ const LOSE_MESSAGES = ["Yikes.", "Bro??", "Skill Issue?", "Uhhh...", "Frick!"];
 
 // STYLES (Discord Dark Theme)
 const styles = {
-  title: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '10px', textShadow: '-5px 5px 10px rgba(0, 0, 0, 0.75)' },
+  title: { maxWidth: '600px', margin: '0 auto', padding: '2px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '5px', textShadow: '-5px 5px 10px rgba(0, 0, 0, 0.75)' },
+  subtitle: { maxWidth: '300px', margin: '0 auto', padding: '2px', marginBottom: '30px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '1px' },
   container: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', textAlign: 'center', paddingBottom: '50px' },
   imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
   quoteBox: { background: '#2b2d31', borderLeft: '4px solid #5865F2', padding: '15px', borderRadius: '4px', fontSize: '1.1rem', marginBottom: '20px', textAlign: 'left', color: '#dbdee1' },
@@ -53,6 +54,8 @@ const styles = {
   }
 };
 
+const GAME_START_DATE = new Date('2025-12-01T00:00:00'); 
+
 const dateStr = new Date().toLocaleDateString("en-US", {
   timeZone: "America/New_York",
   year: 'numeric',
@@ -68,7 +71,7 @@ const getDailySeed = () => {
     hash = (hash << 5) - hash + char;
     hash |= 0; 
   }
-  return Math.abs(hash) + 2;
+  return Math.abs(hash);
 };
 
 // Mulberry32 PRNG
@@ -80,6 +83,17 @@ const mulberry32 = (a) => {
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
 }
+
+const getPuzzleNumber = () => {
+  const current = new Date(dateStr);
+  const start = new Date(GAME_START_DATE.toLocaleDateString("en-US", { timeZone: "America/New_York" }));
+
+  const diffTime = current - start;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  // +1 because Dec 1st should be #1, not #0
+  return Math.max(1, diffDays + 1);
+};
 
 const getDifficultyColor = (label) => {
   switch(label) {
@@ -125,7 +139,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   
   useEffect(() => {
-    fetch('./final_game_data.json')
+    fetch('./game_data_with_images.json')
       .then(res => res.json())
       .then(json => {
         setData(json);
@@ -224,7 +238,7 @@ export default function App() {
     const isWin = lastGuess && lastGuess.correct;
     const score = isWin ? guesses.length : 'X';
     
-    let text = `Who Said It? ${dateStr} (${targetMsg.difficulty.label})\n${score}/${MAX_GUESSES}\n`;
+    let text = `WHODLE #${getPuzzleNumber()}\n${score}/${MAX_GUESSES}\n`;
     
     guesses.forEach(g => {
         text += getUserEmoji(g.user.username);
@@ -238,7 +252,7 @@ export default function App() {
         text += '\n';
     });
 
-    text += 'https://vsporeddy.github.io/who-said-it/';
+    text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -296,7 +310,8 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>WHO SAID IT?</h1>
+      <h1 style={styles.title}>WHODLE</h1>
+      <h3 style={styles.subtitle}><u>{dateStr}</u></h3>
       {/* DIFFICULTY */}
       {targetMsg.difficulty && (
         <div style={{
@@ -322,7 +337,7 @@ export default function App() {
           <div style={styles.inputGroup}>
             <input 
               style={styles.input}
-              placeholder="Type a name..."
+              placeholder="Who said it...?"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
