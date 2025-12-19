@@ -1,6 +1,6 @@
 ***
 
-# Who Said It? 🕵️‍♂️
+# WHODLE
 
 A Wordle-style daily guessing game for Discord servers. The game presents a random message or image from your server's history, and players have 5 tries to guess which user sent it.
 
@@ -30,8 +30,8 @@ You can easily host this game for your friend group! You will need **Python** (t
 1.  **Fork** this repository to your own GitHub account.
 2.  Clone it to your local machine:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/who-said-it.git
-    cd who-said-it
+    git clone https://github.com/YOUR_USERNAME/whodle.git
+    cd whodle
     ```
 
 ### Step 2: Create a Discord Bot
