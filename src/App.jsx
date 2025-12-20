@@ -277,9 +277,9 @@ function Game({ mode }) {
     const lastGuess = guesses[guesses.length - 1];
     const isWin = lastGuess && lastGuess.correct;
     const score = isWin ? guesses.length : 'X';
-    const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+    const modeEmoji = mode === 'text' ? '💬' : '📸';
     
-    let text = `WHODLE #${puzzleNum} (${modeLabel})\n${score}/${MAX_GUESSES}\n`;
+    let text = `WHODLE ${modeEmoji} #${puzzleNum}\n${score}/${MAX_GUESSES}\n`;
     
     guesses.forEach(g => {
         text += getUserEmoji(g.user.username);
