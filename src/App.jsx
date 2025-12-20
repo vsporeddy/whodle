@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUp, ArrowDown, Check, Share2, ExternalLink } from 'lucide-react';
+import { ArrowUp, ArrowDown, Check, Share2, ExternalLink, Image as ImageIcon, MessageSquare } from 'lucide-react';
 
 // CONFIGURATION
 const MAX_GUESSES = 5;
@@ -11,8 +11,22 @@ const LOSE_MESSAGES = ["Yikes.", "Bro??", "Skill Issue?", "Uhhh...", "Frick!"];
 // STYLES (Discord Dark Theme)
 const styles = {
   title: { maxWidth: '600px', margin: '0 auto', padding: '2px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '5px', textShadow: '-5px 5px 10px rgba(0, 0, 0, 0.75)' },
-  subtitle: { maxWidth: '300px', margin: '0 auto', padding: '2px', marginBottom: '30px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '1px' },
+  subtitle: { maxWidth: '300px', margin: '0 auto', padding: '2px', marginBottom: '10px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '1px' },
   container: { maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', textAlign: 'center', paddingBottom: '50px' },
+  tabContainer: { display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' },
+  tab: (isActive) => ({
+    padding: '10px 20px',
+    cursor: 'pointer',
+    borderRadius: '4px',
+    border: isActive ? '1px solid #949BA4' : 'none',
+    fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: isActive ? '#5865F2' : '#4f545c',
+    color: 'white',
+    transition: 'all 0.2s'
+  }),
   imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
   quoteBox: { background: '#2b2d31', borderLeft: '4px solid #5865F2', padding: '15px', borderRadius: '4px', fontSize: '1.1rem', marginBottom: '20px', textAlign: 'left', color: '#dbdee1' },
   inputGroup: { position: 'relative', marginBottom: '10px' },
@@ -131,31 +145,51 @@ const getUserEmoji = (username) => {
 };
 
 export default function App() {
+  const [mode, setMode] = useState('text'); // 'text' or 'image'
+
+  return (
+    <div style={styles.container}>
+      <h1 style={styles.title}>WHODLE</h1>
+      <h3 style={styles.subtitle}>{dateStr}</h3>
+      {/* MODE TABS */}
+      <div style={styles.tabContainer}>
+        <button style={styles.tab(mode === 'text')} onClick={() => setMode('text')}>
+          <MessageSquare size={18} /> Text
+        </button>
+        <button style={styles.tab(mode === 'image')} onClick={() => setMode('image')}>
+          <ImageIcon size={18} /> Image
+        </button>
+      </div>
+
+      <Game key={mode} mode={mode} />
+    </div>
+  );
+}
+
+function Game({ mode }) {
   const [data, setData] = useState(null);
   const [targetMsg, setTargetMsg] = useState(null);
   const [guesses, setGuesses] = useState([]);
   const [input, setInput] = useState('');
   const [gameOver, setGameOver] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
+  const puzzleNum = getPuzzleNumber();
+  const storageKey = `whodle_${mode}_#{puzzleNum}`;
+
   useEffect(() => {
     fetch('./game_data_with_images.json')
       .then(res => res.json())
       .then(json => {
         setData(json);
 
-        // Even days = Image, odd days = Text
-        const puzzleNum = getPuzzleNumber();
-        const isImageDay = (puzzleNum % 2 === 0); 
-        const targetType = isImageDay ? 'image' : 'text';
-        const pool = json.messages.filter(m => m.type === targetType);
-        
+        const pool = json.messages.filter(m => m.type === mode);
         const seed = getDailySeed();
         const rng = mulberry32(seed); 
         const randIndex = Math.floor(rng() * pool.length);
         
         setTargetMsg(pool[randIndex]);
-        const savedState = localStorage.getItem('whosaidit_state');
+        const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           const parsed = JSON.parse(savedState);
           if (parsed.seed === seed) {
@@ -164,12 +198,12 @@ export default function App() {
           }
         }
       });
-  }, []);
+  }, [mode, storageKey]);
 
   useEffect(() => {
     if (!targetMsg) return;
     const seed = getDailySeed();
-    localStorage.setItem('whosaidit_state', JSON.stringify({
+    localStorage.setItem(storageKey, JSON.stringify({
       seed, guesses, gameOver
     }));
   }, [guesses, gameOver, targetMsg]);
@@ -232,6 +266,7 @@ export default function App() {
     const updatedGuesses = [...guesses, newGuess];
     setGuesses(updatedGuesses);
     setInput('');
+    localStorage.setItem(storageKey, JSON.stringify(updatedGuesses));
     
     if (newGuess.correct || updatedGuesses.length >= MAX_GUESSES) {
       setGameOver(true);
@@ -242,8 +277,9 @@ export default function App() {
     const lastGuess = guesses[guesses.length - 1];
     const isWin = lastGuess && lastGuess.correct;
     const score = isWin ? guesses.length : 'X';
+    const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
     
-    let text = `WHODLE #${getPuzzleNumber()}\n${score}/${MAX_GUESSES}\n`;
+    let text = `WHODLE #${puzzleNum} (${modeLabel})\n${score}/${MAX_GUESSES}\n`;
     
     guesses.forEach(g => {
         text += getUserEmoji(g.user.username);
@@ -315,17 +351,17 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>WHODLE</h1>
-      <h3 style={styles.subtitle}><u>{dateStr}</u></h3>
+      {/* <h1 style={styles.title}>WHODLE</h1> */}
+      {/* <h3 style={styles.subtitle}><u>{dateStr}</u></h3> */}
       {/* DIFFICULTY */}
-      {targetMsg.difficulty && (
+      {/* {targetMsg.difficulty && (
         <div style={{
           ...styles.difficultyBadge, 
           backgroundColor: getDifficultyColor(targetMsg.difficulty.label)
         }}>
           <b>{dateStr}</b>: {targetMsg.difficulty.label}
         </div>
-      )}
+      )} */}
 
       {/* MESSAGE */}
       {targetMsg.type === 'image' ? (
@@ -342,7 +378,7 @@ export default function App() {
           <div style={styles.inputGroup}>
             <input 
               style={styles.input}
-              placeholder="Who said it...?"
+              placeholder={`Who ${mode === 'text' ? 'said' : 'posted'} it...?`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
