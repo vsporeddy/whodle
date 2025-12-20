@@ -27,7 +27,7 @@ const styles = {
     color: 'white',
     transition: 'all 0.2s'
   }),
-  imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
+  imagePreview: { maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '20px', cursor: 'zoom-in', transition: 'transform 0.1s', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' },
   quoteBox: { background: '#2b2d31', borderLeft: '4px solid #5865F2', padding: '15px', borderRadius: '4px', fontSize: '1.1rem', marginBottom: '20px', textAlign: 'left', color: '#dbdee1' },
   inputGroup: { position: 'relative', marginBottom: '10px' },
   input: { width: '100%', padding: '15px', fontSize: '1rem', borderRadius: '8px', border: 'none', background: '#383a40', color: 'white', outline: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' },
@@ -65,6 +65,25 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
     justifyContent: 'center'
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0, 
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)', // Dark transparent background
+    zIndex: 2000, // On top of everything
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'zoom-out'
+  },
+  modalImage: {
+    maxWidth: '95vw', // Max 95% of viewport width
+    maxHeight: '95vh', // Max 95% of viewport height
+    borderRadius: '4px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
   }
 };
 
@@ -173,6 +192,7 @@ function Game({ mode }) {
   const [input, setInput] = useState('');
   const [gameOver, setGameOver] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const puzzleNum = getPuzzleNumber();
   const storageKey = `whodle_${mode}_#{puzzleNum}`;
@@ -365,11 +385,26 @@ function Game({ mode }) {
 
       {/* MESSAGE */}
       {targetMsg.type === 'image' ? (
-        <img src={targetMsg.content} style={styles.imagePreview} alt="Puzzle" />
+        <>
+          <img 
+            src={targetMsg.content} 
+            style={styles.imagePreview} 
+            alt="Image" 
+            onClick={() => setIsZoomed(true)} 
+            title="Click to zoom"
+          />
+          {isZoomed && (
+            <div style={styles.modalOverlay} onClick={() => setIsZoomed(false)}>
+              <img 
+                src={targetMsg.content} 
+                style={styles.modalImage} 
+                alt="Zoomed" 
+              />
+            </div>
+          )}
+        </>
       ) : (
-        <div style={styles.quoteBox}>
-          "{formatMessageContent(targetMsg.content)}"
-        </div>
+        <div style={styles.quoteBox}>"{formatMessageContent(targetMsg.content)}"</div>
       )}
 
       {/* INPUT */}
