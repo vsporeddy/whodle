@@ -143,7 +143,7 @@ const getUserEmoji = (username) => {
   switch (username) {
     case 'asura_of_war': return '||:BusyThatDay:||';
     case 'bcguy390': return '||:sus:||';
-    case 'coldchowder': return '||:ChowderWut:||';
+    case 'coldchowder': return '||:ChowderScuffed:||';
     case 'doncha7': return '||:DonchaHowdy:||';
     case 'dudeman27': return '||:DudemanEZ:||';
     case 'dvrx': return '||:dvrxApproved:||';
@@ -158,7 +158,7 @@ const getUserEmoji = (username) => {
     case 'strawberryhoney': return '||:StrawberryKek:||';
     case 'timmy.tam' : return '||:TimmahSuh:||';
     case 'tothemoonn': return '||:audacity:||';
-    case 'zalteo': return '||:Zalteo:||';
+    case 'zalteo': return '||:ZalteoSup:||';
     default: return '||🤠||';
   }
 };
