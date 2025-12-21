@@ -163,6 +163,18 @@ const getUserEmoji = (username) => {
   }
 };
 
+const generateGridString = (guessesArray) => {
+  return guessesArray.map(g => {
+    let row = '';
+    row += getUserEmoji(g.user.username);
+    row += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
+    row += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
+    if (g.correct) row += '🟩';
+    else row += g.roleSimilarity === 100 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
+    return row;
+  }).join('\n') + '\n';
+};
+
 export default function App() {
   const [mode, setMode] = useState('text'); // 'text' or 'image'
 
@@ -195,7 +207,47 @@ function Game({ mode }) {
   const [isZoomed, setIsZoomed] = useState(false);
 
   const puzzleNum = getPuzzleNumber();
-  const storageKey = `whodle_${mode}_#{puzzleNum}`;
+  const storageKey = `whodle_${mode}_${puzzleNum}`;
+  const otherMode = mode === 'text' ? 'image' : 'text';
+  const otherStorageKey = `whodle_${otherMode}_${puzzleNum}`;
+
+  const otherModeData = useMemo(() => {
+    const saved = localStorage.getItem(otherStorageKey);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    return parsed.gameOver ? parsed : null;
+  }, [otherStorageKey, mode]);
+
+  const canShareCombined = gameOver && otherModeData !== null;
+
+  const handleCombinedShare = () => {
+    if (!canShareCombined) return;
+
+    // Prepare current mode data
+    const curScore = guesses[guesses.length - 1].correct ? guesses.length : 'X';
+    const curGrid = generateGridString(guesses);
+    
+    // Prepare other mode data
+    const otherGuesses = otherModeData.guesses;
+    const otherScore = otherGuesses[otherGuesses.length - 1].correct ? otherGuesses.length : 'X';
+    const otherGrid = generateGridString(otherGuesses);
+
+    let text = `WHODLE #${puzzleNum}\n`;
+
+    if (mode === 'text') {
+      text += `💬: ${curScore}/${MAX_GUESSES}\n${curGrid}\n`;
+      text += `📸 : ${otherScore}/${MAX_GUESSES}\n${otherGrid}`;
+    } else {
+      text += `💬: ${otherScore}/${MAX_GUESSES}\n${otherGrid}\n`;
+      text += `📸: ${curScore}/${MAX_GUESSES}\n${curGrid}`;
+    }
+
+    text += 'https://vsporeddy.github.io/whodle/';
+
+    navigator.clipboard.writeText(text);
+    setCopied('combined');
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     fetch('./game_data_with_images.json')
@@ -300,19 +352,7 @@ function Game({ mode }) {
     const modeEmoji = mode === 'text' ? '💬' : '📸';
     
     let text = `WHODLE ${modeEmoji} #${puzzleNum}\n${score}/${MAX_GUESSES}\n`;
-    
-    guesses.forEach(g => {
-        text += getUserEmoji(g.user.username);
-        text += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
-        text += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
-        if (g.correct) {
-            text += '🟩';
-        } else {
-            text += g.roleSimilarity == 100 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
-        }
-        text += '\n';
-    });
-
+    text += generateGridString(guesses);
     text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
@@ -482,8 +522,8 @@ function Game({ mode }) {
           )}
 
           <div style={{display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap'}}>
-            <button onClick={handleShare} style={styles.btnPrimary}>
-              <Share2 size={18} /> {copied ? "Copied!" : "Share Result"}
+            <button onClick={canShareCombined ? handleCombinedShare : handleShare} style={styles.btnPrimary}>
+              <Share2 size={18} /> {copied ? "Copied!" : canShareCombined ? "Share Results (Combined)" : "Share Result"}
             </button>
             
             <a href={getDiscordLink()} target="_blank" rel="noopener noreferrer" style={styles.btnSecondary}>

@@ -1,7 +1,7 @@
 import json
 from collections import Counter, defaultdict
 
-INPUT_FILE = './public/final_game_data.json' 
+INPUT_FILE = './public/game_data_with_images.json' 
 
 CHANNEL_MAP = {
     454492770682404877: "general",
