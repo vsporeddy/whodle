@@ -131,8 +131,8 @@ const styles = {
   dateDisplay: {
     position: 'fixed',
     top: '10px',
-    right: '10px',
-    fontSize: '0.8rem',
+    left: '10px',
+    fontSize: '0.7rem',
     color: 'rgba(255,255,255,0.4)',
     fontWeight: 'bold',
     zIndex: 1000,
