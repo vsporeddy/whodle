@@ -257,8 +257,8 @@ function Game({ mode }) {
         setData(json);
 
         const msgPool = json.messages;
-        var seed = getDailySeed();
-        if (mode === 'image') seed += 999; // Offset for image mode
+        const seed = getDailySeed();
+        // if (mode === 'image') seed += 999; // Offset for image mode
         const rng = mulberry32(seed); 
         const randIndex = Math.floor(rng() * msgPool.length);
         
