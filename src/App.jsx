@@ -143,13 +143,18 @@ export default function App() {
       .then(res => res.json())
       .then(json => {
         setData(json);
+
+        // Even days = Image, odd days = Text
+        const puzzleNum = getPuzzleNumber();
+        const isImageDay = (puzzleNum % 2 === 0); 
+        const targetType = isImageDay ? 'image' : 'text';
+        const pool = json.messages.filter(m => m.type === targetType);
         
         const seed = getDailySeed();
         const rng = mulberry32(seed); 
-        const randIndex = Math.floor(rng() * json.messages.length);
+        const randIndex = Math.floor(rng() * pool.length);
         
-        setTargetMsg(json.messages[randIndex]);
-
+        setTargetMsg(pool[randIndex]);
         const savedState = localStorage.getItem('whosaidit_state');
         if (savedState) {
           const parsed = JSON.parse(savedState);
