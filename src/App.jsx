@@ -250,17 +250,19 @@ function Game({ mode }) {
   };
 
   useEffect(() => {
-    fetch('./game_data_with_images.json')
+    const filename = mode === 'text' ? 'filtered_text_data.json' : 'filtered_image_data.json';
+    fetch(`./${filename}`)
       .then(res => res.json())
       .then(json => {
         setData(json);
 
-        const pool = json.messages.filter(m => m.type === mode);
-        const seed = getDailySeed();
+        const msgPool = json.messages;
+        var seed = getDailySeed();
+        if (mode === 'image') seed += 999; // Offset for image mode
         const rng = mulberry32(seed); 
-        const randIndex = Math.floor(rng() * pool.length);
+        const randIndex = Math.floor(rng() * msgPool.length);
         
-        setTargetMsg(pool[randIndex]);
+        setTargetMsg(msgPool[randIndex]);
         const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           const parsed = JSON.parse(savedState);
