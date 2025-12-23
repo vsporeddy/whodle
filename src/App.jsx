@@ -233,7 +233,7 @@ const generateGridString = (guessesArray) => {
     row += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
     row += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
     if (g.correct) row += '🟩';
-    else row += g.roleSimilarity === 100 ? '🟩' : g.roleSimilarity > 30 ? '🟨' : '⬛';
+    else row += (g.roleClue === '-' || g.roleClue === 'No new shared roles!') ? '⬛' : '🟨';
     return row;
   }).join('\n') + '\n';
 };
@@ -377,8 +377,8 @@ function Game({ mode }) {
         setData(json);
 
         const msgPool = json.messages;
-        const seed = getDailySeed();
-        // if (mode === 'image') seed += 999; // Offset for image mode
+        let seed = getDailySeed();
+        if (mode === 'image') seed += 999; // Offset for image mode
         const rng = mulberry32(seed); 
         const randIndex = Math.floor(rng() * msgPool.length);
         
@@ -386,10 +386,8 @@ function Game({ mode }) {
         const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           const parsed = JSON.parse(savedState);
-          if (parsed.seed === seed) {
-            setGuesses(parsed.guesses);
-            setGameOver(parsed.gameOver);
-          }
+          setGuesses(parsed.guesses);
+          setGameOver(parsed.gameOver);
         }
       });
   }, [mode, storageKey]);
