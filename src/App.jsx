@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUp, ArrowDown, Check, Share2, ExternalLink, Image as ImageIcon, MessageSquare } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Share2, ExternalLink, Image as ImageIcon, MessageSquare, CircleHelp } from 'lucide-react';
 
 // CONFIGURATION
 const MAX_GUESSES = 5;
@@ -77,13 +77,69 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    cursor: 'zoom-out'
+    // cursor: 'zoom-out'
   },
   modalImage: {
     maxWidth: '95vw', // Max 95% of viewport width
     maxHeight: '95vh', // Max 95% of viewport height
     borderRadius: '4px',
     boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+  },
+    header: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: '20px',
+    borderBottom: '1px solid #ddd',
+    paddingBottom: '10px'
+  },
+  // HELP MODAL
+  helpContent: {
+    backgroundColor: '#4f545c',
+    padding: '25px',
+    borderRadius: '8px',
+    maxWidth: '500px',
+    width: '90%',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    textAlign: 'left',
+    position: 'relative',
+    lineHeight: '1.6'
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: '15px',
+    right: '15px',
+    background: 'none',
+    border: 'none',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    color: '#666'
+  },
+  legendTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginTop: '10px'
+  },
+  legendRow: {
+    borderBottom: '1px solid #eee'
+  },
+  legendCell: {
+    padding: '8px',
+    fontSize: '0.9rem'
+  },
+  dateDisplay: {
+    position: 'fixed',
+    top: '10px',
+    right: '10px',
+    fontSize: '0.8rem',
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: 'bold',
+    zIndex: 1000,
+    backgroundColor: '#383a40',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    pointerEvents: 'none' 
   }
 };
 
@@ -94,7 +150,14 @@ const dateStr = new Date().toLocaleDateString("en-US", {
   year: 'numeric',
   month: 'numeric',
   day: 'numeric'
-}); 
+});
+
+const todayStr = new Date().toLocaleDateString("en-US", {
+  timeZone: "America/New_York",
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
 
 // Seed gen based on Eastern time
 const getDailySeed = () => {
@@ -177,11 +240,25 @@ const generateGridString = (guessesArray) => {
 
 export default function App() {
   const [mode, setMode] = useState('text'); // 'text' or 'image'
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>WHODLE</h1>
-      <h3 style={styles.subtitle}>{dateStr}</h3>
+      <div style={styles.dateDisplay}>
+        {todayStr}
+      </div>
+      
+      {/* 2. HEADER WITH HELP BUTTON */}
+      <div style={styles.header}>
+        <div style={{width: '24px'}}></div> {/* Spacer to center title */}
+        <h1 style={styles.title}>WHODLE</h1>
+        <CircleHelp 
+          size={24} 
+          style={{cursor: 'pointer', color: '#555'}} 
+          onClick={() => setShowHelp(true)}
+        />
+      </div>
+
       {/* MODE TABS */}
       <div style={styles.tabContainer}>
         <button style={styles.tab(mode === 'text')} onClick={() => setMode('text')}>
@@ -191,8 +268,51 @@ export default function App() {
           <ImageIcon size={18} /> Image
         </button>
       </div>
-
       <Game key={mode} mode={mode} />
+
+      {/* 3. HELP MODAL */}
+      {showHelp && (
+        <div style={styles.modalOverlay} onClick={() => setShowHelp(false)}>
+          <div style={styles.helpContent} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.closeBtn} onClick={() => setShowHelp(false)}>&times;</button>
+            
+            <h2 style={{marginTop: 0}}>How to Play</h2>
+            <p>Guess which server member sent the message or image.</p>
+            <ul style={{paddingLeft: '20px'}}>
+              <li>You have <strong>5 guesses</strong> per game mode (text and image).</li>
+              <li>A new puzzle is available every day at <strong>Midnight EST</strong>.</li>
+              <li>Complete both game modes to share your combined score.</li>
+            </ul>
+
+            <h3>Clues Legend</h3>
+            <table style={styles.legendTable}>
+              <tbody>
+                <tr style={styles.legendRow}>
+                  <td style={styles.legendCell}><strong>Rank</strong></td>
+                  <td style={styles.legendCell}>
+                    <ArrowUp size={16} style={{verticalAlign: 'middle'}}/> Target is <strong>Higher</strong> rank in the server<br/>
+                    <ArrowDown size={16} style={{verticalAlign: 'middle'}}/> Target is <strong>Lower</strong> rank in the server
+                  </td>
+                </tr>
+                <tr style={styles.legendRow}>
+                  <td style={styles.legendCell}><strong>Joined</strong></td>
+                  <td style={styles.legendCell}>
+                    <ArrowLeft size={16} style={{verticalAlign: 'middle'}}/> Target joined the server <strong>Earlier</strong><br/>
+                    <ArrowRight size={16} style={{verticalAlign: 'middle'}}/> Target joined the server <strong>Later</strong><br/>
+                  </td>
+                </tr>
+                <tr style={styles.legendRow}>
+                  <td style={styles.legendCell}><strong>Roles</strong></td>
+                  <td style={styles.legendCell}>
+                    Each incorrect guess will reveal a random role shared between the target and your guess, from the pool below (if any exist). Clues will not repeat.
+                    <br/><br/><strong>Role Pool</strong>:<br/> arom?, boomer shooters, exiles, jelley-events, lost arknights, PTCGP, qb-dungeoneers, Rat Gang, readers, riot-games, seattleite, tft, tractor?, val?, variety gamers?
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -327,14 +447,37 @@ function Game({ mode }) {
 
     const roleSimilarity = calculateSimilarity(user, targetUser);
 
+    const isCorrect = user.id === targetUser.id;
+    let roleClueText = '';
+
+    if (isCorrect) {
+      roleClueText = 'Correct!';
+    } else {
+      const sharedRoles = user.clues.filter(c => targetUser.clues.includes(c));
+      if (sharedRoles.length === 0) {
+        roleClueText = "-";
+      } else {
+        const previouslyRevealed = new Set(
+          guesses.map(g => g.roleClue).filter(t => t && t !== '-' && t !== 'No new shared roles!' && t !== 'Correct!')
+        );
+        const candidates = sharedRoles.filter(r => !previouslyRevealed.has(r));
+        if (candidates.length === 0) {
+           roleClueText = "No new shared roles!";
+        } else {
+           const randomRole = candidates[Math.floor(Math.random() * candidates.length)];
+           roleClueText = randomRole;
+        }
+      }
+    }
+
     const newGuess = {
       user: user,
-      correct: user.id === targetUser.id,
+      correct: isCorrect,
       rankHint: rankDir,
       joinHint: joinDir,
       guessIndex: guessIndex,
       sharedClues: user.clues.filter(c => targetUser.clues.includes(c)),
-      roleSimilarity: roleSimilarity
+      roleClue: roleClueText
     };
 
     const updatedGuesses = [...guesses, newGuess];
@@ -413,18 +556,6 @@ function Game({ mode }) {
 
   return (
     <div style={styles.container}>
-      {/* <h1 style={styles.title}>WHODLE</h1> */}
-      {/* <h3 style={styles.subtitle}><u>{dateStr}</u></h3> */}
-      {/* DIFFICULTY */}
-      {/* {targetMsg.difficulty && (
-        <div style={{
-          ...styles.difficultyBadge, 
-          backgroundColor: getDifficultyColor(targetMsg.difficulty.label)
-        }}>
-          <b>{dateStr}</b>: {targetMsg.difficulty.label}
-        </div>
-      )} */}
-
       {/* MESSAGE */}
       {targetMsg.type === 'image' ? (
         <>
@@ -495,7 +626,7 @@ function Game({ mode }) {
               <span>User</span>
               <span>Rank</span>
               <span>Joined</span>
-              <span>Shared Roles</span>
+              <span>Roles</span>
           </div>
         )}
         
@@ -516,12 +647,6 @@ function Game({ mode }) {
                 <strong>{data.users[targetMsg.author_id].nickname}</strong>
             </div>
           </div>
-
-          {targetMsg.imposter_id && (
-            <p style={{fontSize: '0.9rem', color: '#666'}}>
-              Fun Fact: The AI thought this was <b>{data.users[targetMsg.imposter_id].nickname} ({data.users[targetMsg.imposter_id].display_name})</b>
-            </p>
-          )}
 
           <div style={{display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap'}}>
             <button onClick={canShareCombined ? handleCombinedShare : handleShare} style={styles.btnPrimary}>
@@ -553,6 +678,12 @@ function Game({ mode }) {
     const YELLOW = '#f0b232';
     const GREY = '#4e5058';
 
+    const getRoleBg = (text, isCorrect) => {
+      if (isCorrect) return GREEN;
+      if (text === '-' || text === 'No new shared roles!') return GREY;
+      return YELLOW;
+    };
+
     return (
       <div style={styles.row}>
         <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px', textOverflow: 'ellipsis'}}>
@@ -576,16 +707,15 @@ function Game({ mode }) {
 
         <div style={{
           ...styles.cell, 
-          background: guess.correct ? GREEN : (guess.roleSimilarity == 100 ? GREEN : (guess.roleSimilarity > 30 ? YELLOW : GREY)), 
-          fontSize: guess.guessIndex < 3 ? '0.9rem' : '0.6rem', 
+          background: getRoleBg(guess.roleClue, guess.correct),          
+          fontSize: guess.roleClue === 'No new shared roles!' ? '0.7rem' : '0.85rem',
           flexDirection:'column', 
           lineHeight:'1.1',
           textAlign: 'center',
           wordBreak: 'break-word',
           padding: '5px'
         }}>
-          {guess.guessIndex < 3 ? guess.roleSimilarity + '%' :
-          guess.sharedClues.length > 0 ? guess.sharedClues.join(', ') : "-"}
+          {guess.roleClue}
         </div>
       </div>
     );
