@@ -713,7 +713,7 @@ function Game({ mode }) {
           wordBreak: 'break-word',
           padding: '5px'
         }}>
-          {guess.roleClue}
+          {guess.roleClue == 'Correct!' ? <Check size={16}/> : guess.roleClue}
         </div>
       </div>
     );
