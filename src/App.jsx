@@ -8,6 +8,17 @@ const MAX_GUESSES = 5;
 const WIN_MESSAGES = ["Oh??", "🤠", "👀", "Good job, bud.", "EZ."];
 const LOSE_MESSAGES = ["Yikes.", "Bro??", "Skill Issue?", "Uhhh...", "Frick!"];
 
+const HOLIDAY_OVERRIDES = {
+  '12/25/2025': {
+    text: '1319050976698695760', 
+    image: '1056752019689459742' 
+  },
+  '12/31/2025' : {
+    text: '1191265799466393600',
+    image: '926701962035097660'
+  }
+};
+
 // STYLES (Discord Dark Theme)
 const styles = {
   title: { maxWidth: '600px', margin: '0 auto', padding: '2px', fontFamily: 'normal Helvetica', textAlign: 'center', letterSpacing: '5px', textShadow: '-5px 5px 10px rgba(0, 0, 0, 0.75)' },
@@ -376,13 +387,25 @@ function Game({ mode }) {
       .then(json => {
         setData(json);
 
+        let chosenMsg = null;
         const msgPool = json.messages;
-        let seed = getDailySeed();
-        if (mode === 'image') seed += 999; // Offset for image mode
-        const rng = mulberry32(seed); 
-        const randIndex = Math.floor(rng() * msgPool.length);
+
+        // Holiday overrides
+        const override = HOLIDAY_OVERRIDES[dateStr];
+        if (override && override[mode]) {
+          const overrideId = override[mode];
+          chosenMsg = json.messages.find(m => m.msg_id === overrideId);
+        } 
         
-        setTargetMsg(msgPool[randIndex]);
+        if (!chosenMsg) {
+          let seed = getDailySeed();
+          if (mode === 'image') seed += 999; // Offset for image mode
+          const rng = mulberry32(seed); 
+          const randIndex = Math.floor(rng() * msgPool.length);
+          chosenMsg = msgPool[randIndex];
+        }
+
+        setTargetMsg(chosenMsg);
         const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           const parsed = JSON.parse(savedState);
