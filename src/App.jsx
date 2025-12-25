@@ -46,7 +46,7 @@ const styles = {
   dropdownItem: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1e1f22', color: '#dbdee1' },
   disabledItem: { padding: '10px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #1e1f22', color: '#dbdee1', opacity: 0.5, background: '#232428' },
   grid: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  row: { display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 2.5fr', gap: '8px' },
+  row: { display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 2fr', gap: '8px' },
   cell: { padding: '10px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', color: 'white', fontWeight: 'bold', boxShadow: '0 2px 2px rgba(0,0,0,0.2)', minWidth: 0, overflow: 'hidden' },
   avatarSmall: { width: '30px', height: '30px', borderRadius: '50%' },
   btnPrimary: { background: '#5865F2', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' },
@@ -643,7 +643,7 @@ function Game({ mode }) {
       {/* GRID */}
       <div style={styles.grid}>
         {guesses.length > 0 && (
-          <div style={{display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 1fr', gap:'5px', fontSize:'0.8rem', opacity: 0.7, marginBottom:'5px', color:'#dbdee1'}}>
+          <div style={{display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 2fr', gap:'5px', fontSize:'0.8rem', opacity: 0.7, marginBottom:'5px', color:'#dbdee1'}}>
               <span>User</span>
               <span>Rank</span>
               <span>Joined</span>
@@ -722,8 +722,8 @@ function Game({ mode }) {
 
         <div style={{...styles.cell, background: guess.correct ? GREEN : (guess.joinHint === 'equal' ? YELLOW : GREY)}}>
           {guess.joinHint === 'equal' ? <Check size={16}/> : 
-          guess.joinHint === 'earlier' ? <span>Earlier</span> : 
-          <span>Later</span>}
+          guess.joinHint === 'earlier' ? <ArrowLeft size={16}/> : 
+          <ArrowRight size={16}/>}
         </div>
 
         <div style={{
