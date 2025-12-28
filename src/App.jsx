@@ -166,7 +166,7 @@ const getUserEmoji = (username) => {
 const generateGridString = (guessesArray) => {
   return guessesArray.map(g => {
     let row = '';
-    row += getUserEmoji(g.user.username);
+    row += g.correct ? '🟩' : getUserEmoji(g.user.username);
     row += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
     row += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
     if (g.correct) row += '🟩';
