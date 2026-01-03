@@ -238,6 +238,12 @@ const getUserEmoji = (username) => {
 };
 
 const generateGridString = (guessesArray) => {
+  const isPerfect = guessesArray.length === 1 && guessesArray[0].correct;
+
+  if (isPerfect) {
+    return '🟪🟪🟪🟪\n';
+  }
+
   return guessesArray.map(g => {
     let row = '';
     row += g.correct ? '🟩' : getUserEmoji(g.user.username);
@@ -363,7 +369,11 @@ function Game({ mode }) {
     const otherScore = otherGuesses[otherGuesses.length - 1].correct ? otherGuesses.length : 'X';
     const otherGrid = generateGridString(otherGuesses);
 
-    let text = `WHODLE #${puzzleNum}\n`;
+    const curPerfect = guesses.length === 1 && guesses[0].correct;
+    const otherPerfect = otherGuesses.length === 1 && otherGuesses[0].correct;
+    const star = curPerfect && otherPerfect ? ' 🌟' : '';
+
+    let text = `WHODLE #${puzzleNum}${star}\n`;
 
     if (mode === 'text') {
       text += `💬: ${curScore}/${MAX_GUESSES}\n${curGrid}\n`;
@@ -530,6 +540,9 @@ function Game({ mode }) {
   const getEndGameMessage = () => {
     if (guesses.length === 0) return "";
     const isWin = guesses[guesses.length - 1].correct;
+
+    if (isWin && guesses.length === 1) return "One shot! 🌟";
+
     const seed = getDailySeed();
     const list = isWin ? WIN_MESSAGES : LOSE_MESSAGES;
     return list[seed % list.length];
