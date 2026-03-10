@@ -154,7 +154,6 @@ const styles = {
   }
 };
 
-const GAME_START_DATE = new Date('2025-12-01T00:00:00'); 
 
 const dateStr = new Date().toLocaleDateString("en-US", {
   timeZone: "America/New_York",
@@ -192,11 +191,14 @@ const mulberry32 = (a) => {
 }
 
 const getPuzzleNumber = () => {
-  const current = new Date(dateStr);
-  const start = new Date(GAME_START_DATE.toLocaleDateString("en-US", { timeZone: "America/New_York" }));
+  // Parse dateStr (e.g. "3/9/2026") into UTC midnight to avoid DST affecting
+  // the millisecond-based day difference (DST spring-forward days are 23h long,
+  // which causes Math.floor to undercount by 1).
+  const [month, day, year] = dateStr.split('/').map(Number);
+  const current = Date.UTC(year, month - 1, day);
+  const start = Date.UTC(2025, 11, 1); // Dec 1, 2025
 
-  const diffTime = current - start;
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor((current - start) / (1000 * 60 * 60 * 24));
 
   // +1 because Dec 1st should be #1, not #0
   return Math.max(1, diffDays + 1);
