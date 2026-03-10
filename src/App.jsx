@@ -191,9 +191,6 @@ const mulberry32 = (a) => {
 }
 
 const getPuzzleNumber = () => {
-  // Parse dateStr (e.g. "3/9/2026") into UTC midnight to avoid DST affecting
-  // the millisecond-based day difference (DST spring-forward days are 23h long,
-  // which causes Math.floor to undercount by 1).
   const [month, day, year] = dateStr.split('/').map(Number);
   const current = Date.UTC(year, month - 1, day);
   const start = Date.UTC(2025, 11, 1); // Dec 1, 2025
@@ -569,7 +566,7 @@ function Game({ mode }) {
       if (match) {
         const userId = match[1];
         const user = data.users[userId];
-        const displayName = user ? `@${user.nickname}` : "@User";
+        const displayName = user ? `@${user.display_name}` : "@User";
 
         return (
           <span 
@@ -639,9 +636,9 @@ function Game({ mode }) {
                       <img src={u.avatar} style={styles.avatarSmall} alt="" />
                       <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', lineHeight:'1.2'}}>
                         <span style={{fontWeight:'bold'}}>
-                          {u.nickname} {isGuessed && "(Already Guessed)"}
+                          {u.display_name} {isGuessed && "(Already Guessed)"}
                         </span>
-                        <span><span style={{fontSize:'0.8rem', color:'#949BA4'}}>{u.display_name}</span> <small style={{color: '#666'}}>({u.username})</small></span>
+                        <span><small style={{color: '#666'}}>({u.username})</small></span>
                       </div>
                     </div>
                   );
@@ -680,7 +677,7 @@ function Game({ mode }) {
             The message was sent by: <br/>
             <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', marginTop:'10px'}}>
                 <img src={data.users[targetMsg.author_id].avatar} style={styles.avatarSmall} alt=""/>
-                <strong>{data.users[targetMsg.author_id].nickname}</strong>
+                <strong>{data.users[targetMsg.author_id].display_name}</strong>
             </div>
           </div>
 
@@ -725,7 +722,7 @@ function Game({ mode }) {
         <div style={{...styles.cell, background: guess.correct ? GREEN : GREY, justifyContent: 'flex-start', gap: '10px', textOverflow: 'ellipsis'}}>
           <img src={guess.user.avatar} style={styles.avatarSmall} alt="" />
           <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>
-            {guess.user.nickname}
+            {guess.user.display_name}
           </span>
         </div>
 
