@@ -58,7 +58,7 @@ const styles = {
   avatarSmall: { width: '30px', height: '30px', borderRadius: '50%' },
   btnPrimary: { background: '#5865F2', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' },
   btnSecondary: { background: '#4f545c', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' },
-  btnDanger: { background: '#ed4245', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+  btnDanger: { background: '#6d3b3c', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' },
   resultsBox: { marginTop: '30px', padding: '20px', background: '#2b2d31', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' },
   guessCounter: { fontSize: '0.9rem', color: '#949BA4', marginTop: '5px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -677,7 +677,7 @@ function Game({ mode, onNextRound }) {
       {!gameOver && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
           <button style={styles.btnDanger} onClick={handleGiveUp}>
-            Skip
+            SKIP
           </button>
         </div>
       )}
