@@ -161,20 +161,32 @@ const generateGridString = (guessesArray, gaveUp = false) => {
 };
 
 export default function App() {
+  const shuffledModes = useMemo(() => {
+    const seed = getDailySeed();
+    const rng = mulberry32(seed);
+    const modes = [...MODES];
+    // Fisher-Yates shuffle with seeded RNG
+    for (let i = modes.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [modes[i], modes[j]] = [modes[j], modes[i]];
+    }
+    return modes;
+  }, []);
+
   const [currentMode, setCurrentMode] = useState(() => {
     const puzzleNum = getPuzzleNumber();
-    for (const m of MODES) {
+    for (const m of shuffledModes) {
       const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
       if (!saved || !JSON.parse(saved).gameOver) return m;
     }
-    return 'url'; // all modes complete, show last mode
+    return shuffledModes[shuffledModes.length - 1]; // all modes complete, show last mode
   });
 
   const [showHelp, setShowHelp] = useState(false);
 
-  const currentModeIndex = MODES.indexOf(currentMode);
-  const isLastMode = currentMode === 'url';
-  const advanceMode = () => setCurrentMode(MODES[currentModeIndex + 1]);
+  const currentModeIndex = shuffledModes.indexOf(currentMode);
+  const isLastMode = currentMode === shuffledModes[shuffledModes.length - 1];
+  const advanceMode = () => setCurrentMode(shuffledModes[currentModeIndex + 1]);
 
   const puzzleNum = getPuzzleNumber();
 
@@ -196,11 +208,11 @@ export default function App() {
       {/* MODE PROGRESS INDICATOR */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
         {(() => {
-          const activeMode = MODES.find(m => {
+          const activeMode = shuffledModes.find(m => {
             const s = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
             return !s || !JSON.parse(s).gameOver;
-          }) ?? MODES[MODES.length - 1];
-          return MODES.map(m => {
+          }) ?? shuffledModes[shuffledModes.length - 1];
+          return shuffledModes.map(m => {
             const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
             const isDone = saved && JSON.parse(saved).gameOver;
             const isCurrent = m === currentMode;
@@ -228,6 +240,7 @@ export default function App() {
       <Game
         key={currentMode}
         mode={currentMode}
+        shuffledModes={shuffledModes}
         onNextRound={!isLastMode ? advanceMode : null}
       />
 
@@ -360,7 +373,7 @@ function UrlPreview({ url }) {
   );
 }
 
-function Game({ mode, onNextRound }) {
+function Game({ mode, shuffledModes, onNextRound }) {
   const [data, setData] = useState(null);
   const [targetMsg, setTargetMsg] = useState(null);
   const [guesses, setGuesses] = useState([]);
@@ -497,7 +510,7 @@ function Game({ mode, onNextRound }) {
   });
 
   const handleCombinedShare = () => {
-    const allPerfect = MODES.every(m => {
+    const allPerfect = shuffledModes.every(m => {
       const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
       if (!saved) return false;
       const d = JSON.parse(saved);
@@ -506,7 +519,7 @@ function Game({ mode, onNextRound }) {
 
     let text = `WHODLE #${puzzleNum}${allPerfect ? ' 🌟' : ''}\n`;
 
-    for (const m of MODES) {
+    for (const m of shuffledModes) {
       const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
       const d = saved ? JSON.parse(saved) : { guesses: [], gaveUp: false };
       const g = d.guesses || [];
