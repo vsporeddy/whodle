@@ -291,11 +291,18 @@ export default function App() {
   );
 }
 
-function UrlPreview({ url }) {
-  const [meta, setMeta] = useState(null);
-  const [loading, setLoading] = useState(true);
+function UrlPreview({ url, preview }) {
+  const [meta, setMeta] = useState(preview ? {
+    publisher: preview.publisher,
+    title: preview.title,
+    description: preview.description,
+    image: preview.image ? { url: preview.image } : null,
+  } : null);
+  const [loading, setLoading] = useState(!preview);
 
   useEffect(() => {
+    if (preview) return; // skip live fetch if pre-generated preview exists
+
     const isYouTube = /youtube\.com\/watch|youtu\.be\//.test(url);
 
     if (isYouTube) {
@@ -318,7 +325,7 @@ function UrlPreview({ url }) {
         .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [url]);
+  }, [url, preview]);
 
   let domain = url;
   try { domain = new URL(url).hostname; } catch (_) {}
@@ -631,7 +638,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
           )}
         </>
       ) : targetMsg.type === 'url' ? (
-        <UrlPreview url={targetMsg.content} />
+        <UrlPreview url={targetMsg.content} preview={targetMsg.preview} />
       ) : (
         <div style={styles.quoteBox}>"{formatMessageContent(targetMsg.content)}"</div>
       )}
