@@ -27,8 +27,7 @@ const HOLIDAY_OVERRIDES = {
   },
   '3/16/2026': {
     text: '953880386772041758',
-    image: '953880973974573097',
-    url: '964431907167289354'
+    image: '953880973974573097'
   },
   '3/17/2026': {
     text: '1161929955882565632'
@@ -144,7 +143,7 @@ const getUserEmoji = (username) => {
 const generateGridString = (guessesArray, gaveUp = false) => {
   const isPerfect = !gaveUp && guessesArray.length === 1 && guessesArray[0].correct;
 
-  if (isPerfect) return '🟪🟪🟪🟪\n';
+  if (isPerfect) return '🟪🟪🟪🟪';
 
   const rows = guessesArray.map(g => {
     let row = '';
@@ -157,7 +156,7 @@ const generateGridString = (guessesArray, gaveUp = false) => {
 
   if (gaveUp) rows.push('🟥🟥🟥🟥');
 
-  return rows.join('\n') + '\n';
+  return rows.join('\n');
 };
 
 export default function App() {
@@ -292,11 +291,18 @@ export default function App() {
   );
 }
 
-function UrlPreview({ url }) {
-  const [meta, setMeta] = useState(null);
-  const [loading, setLoading] = useState(true);
+function UrlPreview({ url, preview }) {
+  const [meta, setMeta] = useState(preview ? {
+    publisher: preview.publisher,
+    title: preview.title,
+    description: preview.description,
+    image: preview.image ? { url: preview.image } : null,
+  } : null);
+  const [loading, setLoading] = useState(!preview);
 
   useEffect(() => {
+    if (preview) return; // skip live fetch if pre-generated preview exists
+
     const isYouTube = /youtube\.com\/watch|youtu\.be\//.test(url);
 
     if (isYouTube) {
@@ -319,7 +325,7 @@ function UrlPreview({ url }) {
         .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [url]);
+  }, [url, preview]);
 
   let domain = url;
   try { domain = new URL(url).hostname; } catch (_) {}
@@ -528,6 +534,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
       const score = isWin ? g.length : 'X';
       text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu)}\n`;
     }
+    text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -631,7 +638,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
           )}
         </>
       ) : targetMsg.type === 'url' ? (
-        <UrlPreview url={targetMsg.content} />
+        <UrlPreview url={targetMsg.content} preview={targetMsg.preview} />
       ) : (
         <div style={styles.quoteBox}>"{formatMessageContent(targetMsg.content)}"</div>
       )}
