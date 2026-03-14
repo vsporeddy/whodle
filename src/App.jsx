@@ -140,6 +140,42 @@ const getUserEmoji = (username) => {
   }
 };
 
+const getRank = (modes, puzzleNum) => {
+  let total = 0;
+  for (const m of modes) {
+    const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+    if (!saved) return null;
+    const d = JSON.parse(saved);
+    const g = d.guesses || [];
+    const gu = d.gaveUp || false;
+    if (gu) {
+      total += 6;
+    } else if (g.length > 0 && g[g.length - 1].correct) {
+      total += g.length;
+    } else {
+      total += 6;
+    }
+  }
+  switch (total) {
+    case 3: return 'S';
+    case 4: return 'S-';
+    case 5: return 'A+';
+    case 6: return 'A';
+    case 7: return 'A-';
+    case 8: return 'B+';
+    case 9: return 'B';
+    case 10: return 'B-';
+    case 11: return 'C+';
+    case 12: return 'C';
+    case 13: return 'C-';
+    case 14: return 'D+';
+    case 15: return 'D';
+    case 16: return 'D-';
+    case 17: return 'F+';
+    default: return 'F';
+  }
+};
+
 const generateGridString = (guessesArray, gaveUp = false) => {
   const isPerfect = !gaveUp && guessesArray.length === 1 && guessesArray[0].correct;
 
@@ -516,14 +552,9 @@ function Game({ mode, shuffledModes, onNextRound }) {
   });
 
   const handleCombinedShare = () => {
-    const allPerfect = shuffledModes.every(m => {
-      const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
-      if (!saved) return false;
-      const d = JSON.parse(saved);
-      return !d.gaveUp && d.guesses.length === 1 && d.guesses[0].correct;
-    });
+    const rank = getRank(shuffledModes, puzzleNum);
 
-    let text = `WHODLE #${puzzleNum}${allPerfect ? ' 🌟' : ''}\n`;
+    let text = `WHODLE #${puzzleNum}\n`;
 
     for (const m of shuffledModes) {
       const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
@@ -534,6 +565,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
       const score = isWin ? g.length : 'X';
       text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu)}\n`;
     }
+    text += `Rank: ${rank}\n`;
     text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
@@ -714,6 +746,13 @@ function Game({ mode, shuffledModes, onNextRound }) {
               <strong>{data.users[targetMsg.author_id].display_name}</strong>
             </div>
           </div>
+
+          {canShareCombined && (
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+              <span style={{ fontSize: '1.2rem' }}>Rank:</span>
+              <strong style={{ fontSize: '2rem', color: '#5865F2', transform: 'translateY(3px)' }}>{getRank(shuffledModes, puzzleNum)}</strong>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {onNextRound ? (
