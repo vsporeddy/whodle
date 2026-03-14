@@ -12,7 +12,14 @@ const MODE_FILE = {
 };
 const MODE_SEED_OFFSET = { text: 0, image: 999, url: 1999 };
 
-// FLAVOR TEXT OPTIONS
+// Default emojis for unknown users (no repeats per mode)
+const DEFAULT_USER_EMOJI_POOL = ['🤔', '🧐', '🐱', '🐶', '🤠', '🥚', '🙂', '🐸'];
+const defaultEmojiState = {
+  text: { shuffled: null, index: 0 },
+  image: { shuffled: null, index: 0 },
+  url: { shuffled: null, index: 0 }
+};
+
 const WIN_MESSAGES = ["Oh??", "🤠", "👀", "Good job, bud.", "EZ."];
 const LOSE_MESSAGES = ["Yikes.", "Bro??", "Skill Issue?", "Uhhh...", "Frick!"];
 
@@ -114,9 +121,28 @@ const getPuzzleNumber = () => {
   return Math.max(1, diffDays + 1);
 };
 
-const getUserEmoji = (username) => {
+const getNextDefaultEmoji = (mode) => {
+  const state = defaultEmojiState[mode] || defaultEmojiState.text;
+  if (!state.shuffled) {
+    const seed = getDailySeed() + (MODE_SEED_OFFSET[mode] ?? 0);
+    const rng = mulberry32(seed);
+    const pool = [...DEFAULT_USER_EMOJI_POOL];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    state.shuffled = pool;
+    state.index = 0;
+  }
+
+  const emoji = state.shuffled[state.index % state.shuffled.length];
+  state.index += 1;
+  return emoji;
+};
+
+const getUserEmoji = (username, mode = 'text') => {
   // Maintain alphabetical order
-  if (!username) return '||🤠||';
+  if (!username) return `||${getNextDefaultEmoji(mode)}||`;
   switch (username) {
     case 'asura_of_war': return '||:BusyThatDay:||';
     case 'bcguy390': return '||:sus:||';
@@ -136,7 +162,7 @@ const getUserEmoji = (username) => {
     case 'timmy.tam': return '||:TimmahSuh:||';
     case 'tothemoonn': return '||:audacity:||';
     case 'zalteo': return '||:ZalteoSup:||';
-    default: return '||🤠||';
+    default: return `||${getNextDefaultEmoji(mode)}||`;
   }
 };
 
@@ -176,14 +202,14 @@ const getRank = (modes, puzzleNum) => {
   }
 };
 
-const generateGridString = (guessesArray, gaveUp = false) => {
+const generateGridString = (guessesArray, gaveUp = false, mode = 'text') => {
   const isPerfect = !gaveUp && guessesArray.length === 1 && guessesArray[0].correct;
 
   if (isPerfect) return '🟪🟪🟪🟪';
 
   const rows = guessesArray.map(g => {
     let row = '';
-    row += g.correct ? '🟩' : getUserEmoji(g.user.username);
+    row += g.correct ? '🟩' : getUserEmoji(g.user.username, mode);
     row += g.rankHint === 'equal' ? '🟩' : (g.rankHint === 'higher' ? '⬆️' : '⬇️');
     row += g.correct ? '🟩' : (g.joinHint === 'earlier' ? '⬅️' : '➡️');
     row += g.correct ? '🟩' : ((g.roleClue === '-' || g.roleClue === 'No new shared roles!') ? '⬛' : '🟨');
@@ -563,7 +589,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
       const gu = d.gaveUp || false;
       const isWin = !gu && g.length > 0 && g[g.length - 1].correct;
       const score = isWin ? g.length : 'X';
-      text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu)}\n`;
+      text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu, m)}\n`;
     }
     text += `Rank: ${rank}\n`;
     text += 'https://vsporeddy.github.io/whodle/';
