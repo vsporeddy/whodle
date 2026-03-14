@@ -49,7 +49,7 @@ const styles = {
   avatarSmall: { width: '30px', height: '30px', borderRadius: '50%' },
   btnPrimary: { background: '#5865F2', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' },
   btnSecondary: { background: '#4f545c', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' },
-  btnDanger: { background: 'transparent', color: '#ed4245', border: '1px solid #ed4245', padding: '6px 14px', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' },
+  btnDanger: { background: '#ed4245', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' },
   resultsBox: { marginTop: '30px', padding: '20px', background: '#2b2d31', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' },
   guessCounter: { fontSize: '0.9rem', color: '#949BA4', marginTop: '5px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -201,7 +201,7 @@ export default function App() {
                 {MODE_EMOJI[m]}
               </span>
               {i < MODES.length - 1 && (
-                <span style={{ color: '#4f545c', fontSize: '0.75rem' }}>→</span>
+                <span style={{ color: '#4f545c', fontSize: '1rem', fontWeight: '900' }}>→</span>
               )}
             </React.Fragment>
           );
@@ -459,6 +459,7 @@ function Game({ mode, onNextRound }) {
 
   // All 3 modes must be complete before sharing
   const canShareCombined = gameOver && MODES.every(m => {
+    if (m === mode) return gameOver;
     const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
     return saved && JSON.parse(saved).gameOver;
   });
@@ -482,8 +483,6 @@ function Game({ mode, onNextRound }) {
       const score = isWin ? g.length : 'X';
       text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu)}\n`;
     }
-
-    text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -625,7 +624,7 @@ function Game({ mode, onNextRound }) {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
             <div style={styles.guessCounter}>
               {guessesRemaining} guess{guessesRemaining !== 1 ? 'es' : ''} remaining 
             </div>
@@ -662,7 +661,7 @@ function Game({ mode, onNextRound }) {
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {onNextRound ? (
               <button onClick={onNextRound} style={styles.btnPrimary}>
-                Go Next →
+                Next →
               </button>
             ) : (
               canShareCombined && (
