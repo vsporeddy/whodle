@@ -450,6 +450,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
   const [gaveUp, setGaveUp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [combinedRank, setCombinedRank] = useState(null);
 
   const puzzleNum = getPuzzleNumber();
   const storageKey = `whodle_${mode}_${puzzleNum}`;
@@ -492,7 +493,16 @@ function Game({ mode, shuffledModes, onNextRound }) {
     if (!targetMsg) return;
     const seed = getDailySeed();
     localStorage.setItem(storageKey, JSON.stringify({ seed, guesses, gameOver, gaveUp }));
-  }, [guesses, gameOver, gaveUp, targetMsg]);
+
+    // Update combined rank if all modes are complete
+    const allComplete = MODES.every(m => {
+      const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+      return saved && JSON.parse(saved).gameOver;
+    });
+    if (allComplete) {
+      setCombinedRank(getRank(shuffledModes, puzzleNum));
+    }
+  }, [guesses, gameOver, gaveUp, targetMsg, shuffledModes, puzzleNum]);
 
   const filteredUsers = useMemo(() => {
     if (!data || !input) return [];
@@ -578,7 +588,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
   });
 
   const handleCombinedShare = () => {
-    const rank = getRank(shuffledModes, puzzleNum);
+    const rank = combinedRank || getRank(shuffledModes, puzzleNum);
 
     let text = `WHODLE #${puzzleNum}\n`;
 
@@ -773,10 +783,10 @@ function Game({ mode, shuffledModes, onNextRound }) {
             </div>
           </div>
 
-          {canShareCombined && (
+          {canShareCombined && combinedRank && (
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
               <span style={{ fontSize: '1.2rem' }}>Rank:</span>
-              <strong style={{ fontSize: '2rem', color: '#5865F2', transform: 'translateY(3px)' }}>{getRank(shuffledModes, puzzleNum)}</strong>
+              <strong style={{ fontSize: '2rem', color: '#5865F2', transform: 'translateY(3px)' }}>{combinedRank}</strong>
             </div>
           )}
 
