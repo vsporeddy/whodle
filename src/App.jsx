@@ -27,8 +27,7 @@ const HOLIDAY_OVERRIDES = {
   },
   '3/16/2026': {
     text: '953880386772041758',
-    image: '953880973974573097',
-    url: '964431907167289354'
+    image: '953880973974573097'
   },
   '3/17/2026': {
     text: '1161929955882565632'
@@ -144,7 +143,7 @@ const getUserEmoji = (username) => {
 const generateGridString = (guessesArray, gaveUp = false) => {
   const isPerfect = !gaveUp && guessesArray.length === 1 && guessesArray[0].correct;
 
-  if (isPerfect) return '🟪🟪🟪🟪\n';
+  if (isPerfect) return '🟪🟪🟪🟪';
 
   const rows = guessesArray.map(g => {
     let row = '';
@@ -157,7 +156,7 @@ const generateGridString = (guessesArray, gaveUp = false) => {
 
   if (gaveUp) rows.push('🟥🟥🟥🟥');
 
-  return rows.join('\n') + '\n';
+  return rows.join('\n');
 };
 
 export default function App() {
@@ -528,6 +527,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
       const score = isWin ? g.length : 'X';
       text += `${MODE_EMOJI[m]}: ${score}/${MAX_GUESSES}\n${generateGridString(g, gu)}\n`;
     }
+    text += 'https://vsporeddy.github.io/whodle/';
 
     navigator.clipboard.writeText(text);
     setCopied(true);
