@@ -194,15 +194,15 @@ export default function App() {
             <React.Fragment key={m}>
               <span title={m} style={{
                 opacity: isCurrent ? 1 : isDone ? 0.65 : 0.25,
-                fontSize: isCurrent ? '1.5rem' : '1.1rem',
+                fontSize: isCurrent ? '2.5rem' : '1.1rem',
                 transition: 'all 0.2s',
                 filter: isDone && !isCurrent ? 'grayscale(30%)' : 'none'
               }}>
                 {MODE_EMOJI[m]}
               </span>
-              {i < MODES.length - 1 && (
+              {/* {i < MODES.length - 1 && (
                 <span style={{ color: '#4f545c', fontSize: '1rem', fontWeight: '900' }}>→</span>
-              )}
+              )} */}
             </React.Fragment>
           );
         })}
@@ -624,13 +624,10 @@ function Game({ mode, onNextRound }) {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <div style={styles.guessCounter}>
-              {guessesRemaining} guess{guessesRemaining !== 1 ? 'es' : ''} remaining 
+              {guessesRemaining} guess{guessesRemaining !== 1 ? 'es' : ''} remaining
             </div>
-            <button style={styles.btnDanger} onClick={handleGiveUp}>
-              Get Me Out
-            </button>
           </div>
         </>
       )}
@@ -644,6 +641,14 @@ function Game({ mode, onNextRound }) {
         )}
         {guesses.map((g, i) => <GuessRow key={i} guess={g} />)}
       </div>
+
+      {!gameOver && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+          <button style={styles.btnDanger} onClick={handleGiveUp}>
+            Get Me Out
+          </button>
+        </div>
+      )}
 
       {/* GAME OVER */}
       {gameOver && (
