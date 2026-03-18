@@ -185,7 +185,7 @@ export default function App() {
       {/* HEADER */}
       <div style={styles.header}>
         <div style={{ width: '24px' }} />
-        <h1 style={styles.title}>WHODLE</h1>
+        <h1 style={styles.title}>WHODLE <span style={{ fontSize: '0.8em', opacity: 0.5, letterSpacing: '2px' }}>#{puzzleNum}</span></h1>
         <CircleHelp
           size={24}
           style={{ cursor: 'pointer', color: '#555' }}
