@@ -259,8 +259,6 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.dateDisplay}>{todayStr}</div>
-
       {/* HEADER */}
       <div style={styles.header}>
         <div style={{ width: '24px' }} />
