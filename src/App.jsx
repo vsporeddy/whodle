@@ -281,13 +281,28 @@ function UrlPreview({ url }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success') setMeta(data.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const isYouTube = /youtube\.com\/watch|youtu\.be\//.test(url);
+
+    if (isYouTube) {
+      fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
+        .then(res => res.json())
+        .then(data => setMeta({
+          publisher: data.provider_name,
+          title: data.title,
+          description: data.author_name,
+          image: { url: data.thumbnail_url },
+        }))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success') setMeta(data.data);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
   }, [url]);
 
   let domain = url;
