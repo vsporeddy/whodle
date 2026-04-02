@@ -27,7 +27,13 @@ const HOLIDAY_OVERRIDES = {
   },
   '3/16/2026': {
     text: '953880386772041758',
-    image: '953880973974573097'
+    image: '953880973974573097',
+    url: '964431907167289354'
+  },
+  '4/1/2026': {
+    text: '1466277510814629930',
+    image: '1457440526868414693',
+    url: '1100267104948727859'
   }
 };
 
@@ -186,26 +192,34 @@ export default function App() {
 
       {/* MODE PROGRESS INDICATOR */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
-        {MODES.map((m, i) => {
-          const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
-          const isDone = saved && JSON.parse(saved).gameOver;
-          const isCurrent = m === currentMode;
-          return (
-            <React.Fragment key={m}>
-              <span title={m} style={{
-                opacity: isCurrent ? 1 : isDone ? 0.65 : 0.25,
-                fontSize: isCurrent ? '2.5rem' : '1.1rem',
-                transition: 'all 0.2s',
-                filter: isDone && !isCurrent ? 'grayscale(30%)' : 'none'
-              }}>
-                {MODE_EMOJI[m]}
-              </span>
-              {/* {i < MODES.length - 1 && (
-                <span style={{ color: '#4f545c', fontSize: '1rem', fontWeight: '900' }}>→</span>
-              )} */}
-            </React.Fragment>
-          );
-        })}
+        {(() => {
+          const activeMode = MODES.find(m => {
+            const s = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+            return !s || !JSON.parse(s).gameOver;
+          }) ?? MODES[MODES.length - 1];
+          return MODES.map(m => {
+            const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+            const isDone = saved && JSON.parse(saved).gameOver;
+            const isCurrent = m === currentMode;
+            const isClickable = (isDone || m === activeMode) && !isCurrent;
+            return (
+              <React.Fragment key={m}>
+                <span
+                  title={m}
+                  onClick={() => isClickable && setCurrentMode(m)}
+                  style={{
+                    opacity: isCurrent ? 1 : isDone || m === activeMode ? 1 : 0.25,
+                    fontSize: isCurrent ? '2.5rem' : '1.1rem',
+                    transition: 'all 0.2s',
+                    cursor: isClickable ? 'pointer' : 'default',
+                  }}
+                >
+                  {MODE_EMOJI[m]}
+                </span>
+              </React.Fragment>
+            );
+          });
+        })()}
       </div>
 
       <Game
@@ -226,7 +240,7 @@ export default function App() {
               <li>You have <strong>5 guesses</strong> per round.</li>
               <li>Complete all three rounds to share your combined results.</li>
               <li>A new puzzle is available every day at <strong>Midnight EST</strong>.</li>
-              <li>Click <strong>Get Me Out</strong> to skip a round and see the answer (counts as a loss).</li>
+              <li>Use <strong>Skip</strong> to skip a round and see the answer (counts as a loss).</li>
             </ul>
 
             <h3>Clues Legend</h3>
@@ -490,8 +504,8 @@ function Game({ mode, onNextRound }) {
   };
 
   const getEndGameMessage = () => {
-    if (guesses.length === 0) return "";
-    const isWin = guesses[guesses.length - 1].correct;
+    if (guesses.length === 0 && !gaveUp) return "";
+    const isWin = !gaveUp && guesses.length > 0 && guesses[guesses.length - 1].correct;
     if (isWin && guesses.length === 1) return "One shot! 🌟";
     const seed = getDailySeed();
     const list = isWin ? WIN_MESSAGES : LOSE_MESSAGES;
@@ -645,7 +659,7 @@ function Game({ mode, onNextRound }) {
       {!gameOver && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
           <button style={styles.btnDanger} onClick={handleGiveUp}>
-            Get Me Out
+            Skip
           </button>
         </div>
       )}
