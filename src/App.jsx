@@ -18,7 +18,7 @@ const QUIZ_TARGET_MAX = Math.floor(QUIZ_SIZE * 0.6);
 // Stats: a quiz day is a much bigger sample than one classic round, so it weighs more
 const STATS_QUIZ_WEIGHT = 3;
 // Only a perfect score earns an S; each miss drops one step from there.
-const QUIZ_RANKS = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'S'];
+const QUIZ_RANKS = ['F', 'D-', 'D', 'C-', 'C', 'B-', 'B', 'A-', 'A', 'S'];
 const QUIZ_RANK_MESSAGES = {
   S: "am i that?",
   A: "besties 🥹",
@@ -336,7 +336,7 @@ const buildQuiz = (datasets, targetId, rng = Math.random) => {
 };
 
 const getQuizRank = (correct, total = QUIZ_SIZE) => {
-  // 25 -> S, 24 -> A, 23 -> A-, ... 14 -> D-, 13 and below -> F
+  // 20 -> S, 19 -> A, 18 -> A-, 17 -> B, 16 -> B-, 15 -> C, 14 -> C-, 13 -> D, 12 -> D-, 11 and below -> F
   const idx = Math.max(0, Math.min(QUIZ_RANKS.length - 1, correct - (total - (QUIZ_RANKS.length - 1))));
   return QUIZ_RANKS[idx];
 };
