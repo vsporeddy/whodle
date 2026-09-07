@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Share2, ExternalLink, CircleHelp, Brain, CalendarDays, X, RotateCcw, Users } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Share2, ExternalLink, CircleHelp, BarChart3, X } from 'lucide-react';
 
 // CONFIGURATION
 const MAX_GUESSES = 5;
 const MODES = ['text', 'image', 'url'];
 
-// QUIZ MODE ("How well do you know X?")
-const QUIZ_SIZE = 25;
-const QUIZ_TYPE_SLOTS = { text: 13, image: 6, url: 6 }; // ~50% / ~25% / ~25%
-// Share of posts that are really the target's: drawn at random per quiz within this range
+// QUIZ MODE ("How well do you know X?") — runs every other day, alternating with classic.
+// Odd puzzle numbers are quiz days (puzzle #281 on 9/7/2026 is a quiz day).
+const isQuizDay = (puzzleNum) => puzzleNum % 2 === 1;
+const QUIZ_EMOJI = '🧠';
+const QUIZ_SEED_OFFSET = 4242;
+const QUIZ_SIZE = 20;
+const QUIZ_TYPE_SLOTS = { text: 12, image: 4, url: 4 }; // 60% / 20% / 20%
+// Share of posts that are really the target's: drawn (seeded) per quiz within this range
 const QUIZ_TARGET_MIN = Math.ceil(QUIZ_SIZE * 0.3);
 const QUIZ_TARGET_MAX = Math.floor(QUIZ_SIZE * 0.6);
+// Stats: a quiz day is a much bigger sample than one classic round, so it weighs more
+const STATS_QUIZ_WEIGHT = 3;
 // Only a perfect score earns an S; each miss drops one step from there.
 const QUIZ_RANKS = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'S'];
 const QUIZ_RANK_MESSAGES = {
@@ -237,7 +243,7 @@ const getRank = (modes, puzzleNum) => {
 };
 
 // ---------- QUIZ HELPERS ----------
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+const randInt = (min, max, rng = Math.random) => min + Math.floor(rng() * (max - min + 1));
 
 const shuffleInPlace = (arr, rng = Math.random) => {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -248,7 +254,17 @@ const shuffleInPlace = (arr, rng = Math.random) => {
 };
 
 // Draws n distinct random items from pool (no mutation of pool)
-const sample = (pool, n) => shuffleInPlace([...pool]).slice(0, n);
+const sample = (pool, n, rng = Math.random) => shuffleInPlace([...pool], rng).slice(0, n);
+
+// Today's quiz subject: seeded pick among members with enough posts (sorted by id so every client agrees)
+const pickQuizUser = (datasets, rng) => {
+  const counts = getQuizPostCounts(datasets);
+  const eligible = Object.values(datasets.text.users)
+    .filter(u => (counts[u.id]?.total || 0) >= QUIZ_TARGET_MIN)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  if (eligible.length === 0) return null;
+  return eligible[Math.floor(rng() * eligible.length)];
+};
 
 // Per-user post counts across all datasets: { [userId]: { text, image, url, total } }
 const getQuizPostCounts = (datasets) => {
@@ -264,8 +280,9 @@ const getQuizPostCounts = (datasets) => {
 };
 
 // Builds a shuffled list of QUIZ_SIZE items: { msg, isTarget }
-// Mix is ~50% text / ~25% image / ~25% url, with 30-60% of posts by the target user.
-const buildQuiz = (datasets, targetId) => {
+// Mix follows QUIZ_TYPE_SLOTS, with 30-60% of posts by the target user.
+// Pass a seeded rng so every player gets the same quiz on the same day.
+const buildQuiz = (datasets, targetId, rng = Math.random) => {
   const own = {}, others = {};
   for (const mode of MODES) {
     own[mode] = datasets[mode].messages.filter(m => m.author_id === targetId);
@@ -285,8 +302,8 @@ const buildQuiz = (datasets, targetId) => {
     }
   }
 
-  // How many of the 25 are actually by the target
-  const targetTotal = randInt(QUIZ_TARGET_MIN, Math.min(QUIZ_TARGET_MAX, totalOwn));
+  // How many of the QUIZ_SIZE posts are actually by the target
+  const targetTotal = randInt(QUIZ_TARGET_MIN, Math.min(QUIZ_TARGET_MAX, totalOwn), rng);
 
   // Spread target posts across types proportionally, clamped by availability
   const cap = (mode) => Math.min(own[mode].length, slots[mode]);
@@ -310,12 +327,12 @@ const buildQuiz = (datasets, targetId) => {
   for (const mode of MODES) {
     const n = slots[mode];
     if (n === 0) continue;
-    const ownPicks = sample(own[mode], targetPer[mode]);
-    const decoyPicks = sample(others[mode], n - ownPicks.length);
+    const ownPicks = sample(own[mode], targetPer[mode], rng);
+    const decoyPicks = sample(others[mode], n - ownPicks.length, rng);
     ownPicks.forEach(msg => items.push({ msg, isTarget: true }));
     decoyPicks.forEach(msg => items.push({ msg, isTarget: false }));
   }
-  return shuffleInPlace(items);
+  return shuffleInPlace(items, rng);
 };
 
 const getQuizRank = (correct, total = QUIZ_SIZE) => {
@@ -395,38 +412,25 @@ export default function App() {
   });
 
   const [showHelp, setShowHelp] = useState(false);
-
-  // 'daily' (default) or 'quiz'. Deep-linkable via #quiz.
-  const [view, setView] = useState(() => (window.location.hash === '#quiz' ? 'quiz' : 'daily'));
-  const switchView = (next) => {
-    setView(next);
-    const url = window.location.pathname + window.location.search + (next === 'quiz' ? '#quiz' : '');
-    window.history.replaceState(null, '', url);
-  };
-  const isQuiz = view === 'quiz';
+  const [showStats, setShowStats] = useState(false);
 
   const currentModeIndex = shuffledModes.indexOf(currentMode);
   const isLastMode = currentMode === shuffledModes[shuffledModes.length - 1];
   const advanceMode = () => setCurrentMode(shuffledModes[currentModeIndex + 1]);
 
   const puzzleNum = getPuzzleNumber();
+  const quizDay = isQuizDay(puzzleNum);
 
   return (
     <div style={styles.container}>
       {/* HEADER */}
       <div style={styles.header}>
-        {isQuiz ? (
-          <span title="Back to daily puzzle" style={{ display: 'inline-flex', cursor: 'pointer', color: '#555' }} onClick={() => switchView('daily')}>
-            <CalendarDays size={24} />
-          </span>
-        ) : (
-          <span title="Quiz: how well do you know a user?" style={{ display: 'inline-flex', cursor: 'pointer', color: '#555' }} onClick={() => switchView('quiz')}>
-            <Brain size={24} />
-          </span>
-        )}
+        <span title="Stats: how well do you know everyone?" style={{ display: 'inline-flex', cursor: 'pointer', color: '#555' }} onClick={() => setShowStats(true)}>
+          <BarChart3 size={24} />
+        </span>
         <h1 style={styles.title}>
           {isAprilFools ? 'WHOMSTDLE' : 'WHODLE'}{' '}
-          <span style={{ fontSize: '0.8em', opacity: 0.5, letterSpacing: '2px' }}>{isQuiz ? 'QUIZ' : `#${puzzleNum}`}</span>
+          <span style={{ fontSize: '0.8em', opacity: 0.5, letterSpacing: '2px' }}>#{puzzleNum}</span>
         </h1>
         <CircleHelp
           size={24}
@@ -435,11 +439,11 @@ export default function App() {
         />
       </div>
 
-      {isQuiz && <Quiz />}
-
       {/* MODE PROGRESS INDICATOR */}
-      <div style={{ display: isQuiz ? 'none' : 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
-        {(() => {
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
+        {quizDay ? (
+          <span title="quiz day" style={{ fontSize: '2.5rem' }}>{QUIZ_EMOJI}</span>
+        ) : (() => {
           const activeMode = shuffledModes.find(m => {
             const s = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
             return !s || !JSON.parse(s).gameOver;
@@ -469,7 +473,9 @@ export default function App() {
         })()}
       </div>
 
-      {!isQuiz && (
+      {quizDay ? (
+        <Quiz puzzleNum={puzzleNum} />
+      ) : (
         <Game
           key={currentMode}
           mode={currentMode}
@@ -478,6 +484,9 @@ export default function App() {
         />
       )}
 
+      {/* STATS MODAL */}
+      {showStats && <StatsModal onClose={() => setShowStats(false)} />}
+
       {/* HELP MODAL */}
       {showHelp && (
         <div style={styles.modalOverlay} onClick={() => setShowHelp(false)}>
@@ -485,20 +494,21 @@ export default function App() {
             <button style={styles.closeBtn} onClick={() => setShowHelp(false)}>&times;</button>
 
             <h2 style={{ marginTop: 0 }}>How to Play</h2>
+            <p>A new puzzle is available every day at <strong>Midnight EST</strong>. Days alternate between <strong>Classic</strong> and <strong>Quiz</strong>.</p>
+
+            <h3>{MODE_EMOJI.text}{MODE_EMOJI.image}{MODE_EMOJI.url} Classic</h3>
             <p>Guess which server member sent the message, image, or URL (three rounds played in order).</p>
             <ul style={{ paddingLeft: '20px' }}>
               <li>You have <strong>5 guesses</strong> per round.</li>
               <li>Complete all three rounds to share your combined results.</li>
-              <li>A new puzzle is available every day at <strong>Midnight EST</strong>.</li>
               <li>Use <strong>Skip</strong> to skip a round and see the answer (counts as a loss).</li>
             </ul>
 
-            <h3><Brain size={18} style={{ verticalAlign: 'middle' }} /> Quiz Mode</h3>
-            <p>Tap the brain icon to play <strong>"How well do you know…?"</strong> Pick a server member, then judge {QUIZ_SIZE} posts: did they post it, or did someone else?</p>
-            <ul style={{ paddingLeft: '20px' }}>
-              <li>A random percentage of the posts are really theirs.</li>
-              <li>You get a rank at the end based on how many you called correctly. Play as many times as you like.</li>
-            </ul>
+            <h3>{QUIZ_EMOJI} Quiz</h3>
+            <p><strong>"How well do you know…?"</strong> One member is picked for the day. Judge {QUIZ_SIZE} posts one at a time: did they post it, or did someone else? Everyone gets the same member and the same posts.</p>
+
+            <h3><BarChart3 size={18} style={{ verticalAlign: 'middle' }} /> Stats</h3>
+            <p>Tap the chart icon to see how well you know each member, combining your Classic and Quiz results.</p>
 
             <h3>Clues Legend</h3>
             <table style={styles.legendTable}>
@@ -671,7 +681,8 @@ function Game({ mode, shuffledModes, onNextRound }) {
   useEffect(() => {
     if (!targetMsg) return;
     const seed = getDailySeed();
-    localStorage.setItem(storageKey, JSON.stringify({ seed, guesses, gameOver, gaveUp }));
+    // targetId lets the stats screen attribute this round to a member even on a loss
+    localStorage.setItem(storageKey, JSON.stringify({ seed, guesses, gameOver, gaveUp, targetId: targetMsg.author_id }));
 
     // Update combined rank if all modes are complete
     const allComplete = MODES.every(m => {
@@ -981,69 +992,58 @@ function PostDisplay({ msg, users }) {
   return <div style={styles.quoteBox}>"{formatMessageContent(msg.content, users)}"</div>;
 }
 
-// QUIZ MODE: "How well do you know X?"
-function Quiz() {
+// QUIZ MODE (daily): "How well do you know X?" — same member and posts for everyone that day
+function Quiz({ puzzleNum }) {
   const [datasets, setDatasets] = useState(null);
   const [loadError, setLoadError] = useState(false);
-  const [search, setSearch] = useState('');
   const [targetUser, setTargetUser] = useState(null);
   const [items, setItems] = useState(null);       // [{ msg, isTarget }]
-  const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState([]);     // [{ correct, isTarget, type }]
-  const [feedback, setFeedback] = useState(null); // { correct, author, msg } for the current post
+  const [feedback, setFeedback] = useState(null); // { correct, author, msg } for the post just answered
   const [copied, setCopied] = useState(false);
-  const [isNewBest, setIsNewBest] = useState(false);
+
+  const storageKey = `whodle_quiz_${puzzleNum}`;
 
   useEffect(() => {
     Promise.all(MODES.map(m => fetch(`./${MODE_FILE[m]}`).then(res => res.json())))
-      .then(([text, image, url]) => setDatasets({ text, image, url }))
+      .then(([text, image, url]) => {
+        const ds = { text, image, url };
+        const rng = mulberry32(getDailySeed() + QUIZ_SEED_OFFSET);
+        const user = pickQuizUser(ds, rng);
+        const built = user ? buildQuiz(ds, user.id, rng) : null;
+        if (!built) { setLoadError(true); return; }
+
+        // Restore today's progress (only if it was built for the same member)
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.targetId === user.id && Array.isArray(parsed.answers)) {
+            setAnswers(parsed.answers.slice(0, built.length));
+          }
+        }
+
+        setDatasets(ds);
+        setTargetUser(user);
+        setItems(built);
+      })
       .catch(() => setLoadError(true));
-  }, []);
+  }, [storageKey]);
 
   const users = datasets?.text.users;
-  const postCounts = useMemo(() => (datasets ? getQuizPostCounts(datasets) : {}), [datasets]);
-
-  const userList = useMemo(() => {
-    if (!users) return [];
-    const q = search.trim().toLowerCase();
-    return Object.values(users)
-      .filter(u => !q || [u.username, u.nickname, u.display_name].some(n => n.toLowerCase().includes(q)))
-      .sort((a, b) =>
-        // Quizzable members first (alphabetical), then the "too few posts" group
-        ((postCounts[b.id]?.total || 0) >= QUIZ_TARGET_MIN) - ((postCounts[a.id]?.total || 0) >= QUIZ_TARGET_MIN) ||
-        a.display_name.localeCompare(b.display_name, undefined, { sensitivity: 'base' })
-      );
-  }, [users, postCounts, search]);
-
-  const bestKey = (userId) => `whodle_quiz_best_${userId}`;
-  const getBest = (userId) => {
-    const v = parseInt(localStorage.getItem(bestKey(userId)), 10);
-    return Number.isFinite(v) ? v : null;
-  };
-
-  const startQuiz = (user) => {
-    const built = buildQuiz(datasets, user.id);
-    if (!built) return;
-    setTargetUser(user);
-    setItems(built);
-    setIndex(0);
-    setAnswers([]);
-    setFeedback(null);
-    setCopied(false);
-    setIsNewBest(false);
-    window.scrollTo({ top: 0 });
-  };
-
-  const backToPicker = () => {
-    setTargetUser(null);
-    setItems(null);
-    setAnswers([]);
-    setFeedback(null);
-    setSearch('');
-  };
-
+  const index = answers.length;
   const finished = !!items && index >= items.length;
   const correctCount = answers.filter(a => a.correct).length;
+
+  // Persist progress
+  useEffect(() => {
+    if (!items || !targetUser) return;
+    localStorage.setItem(storageKey, JSON.stringify({
+      seed: getDailySeed(),
+      targetId: targetUser.id,
+      answers,
+      gameOver: answers.length >= items.length
+    }));
+  }, [answers, items, targetUser, storageKey]);
 
   const handleAnswer = (guessIsTarget) => {
     if (!items || feedback || finished) return;
@@ -1055,23 +1055,13 @@ function Quiz() {
 
   const handleNext = () => {
     if (!feedback) return;
-    const nextIndex = index + 1;
-    if (nextIndex >= items.length) {
-      // Quiz complete: persist best score for this user
-      const prev = getBest(targetUser.id);
-      if (prev === null || correctCount > prev) {
-        localStorage.setItem(bestKey(targetUser.id), String(correctCount));
-        setIsNewBest(prev !== null);
-      }
-    }
     setFeedback(null);
-    setIndex(nextIndex);
     window.scrollTo({ top: 0 });
   };
 
   // Keyboard shortcuts: 1 / Y / <- = them, 2 / N / -> = someone else, Enter / Space = next
   useEffect(() => {
-    if (!items || finished) return;
+    if (!items || (finished && !feedback)) return;
     const onKey = (e) => {
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
       const k = e.key.toLowerCase();
@@ -1089,12 +1079,12 @@ function Quiz() {
   const handleShare = () => {
     const rank = getQuizRank(correctCount, items.length);
     const userEmoji = getUserEmoji(targetUser.username).replace(/\|\|/g, '');
-    // <@id> renders as a Discord mention when pasted
-    let text = `WHODLE QUIZ\n<@${targetUser.id}> ${userEmoji}\n`;
+    let text = `${isAprilFools ? 'WHOMSTDLE' : 'WHODLE'} #${puzzleNum}\n`;
+    text += `**${targetUser.display_name}** ${userEmoji}\n`;
     text += `${generateQuizGridString(answers)}\n`;
     text += `Score: ${correctCount}/${items.length}\n`;
     text += `Rank: ${rank}\n`;
-    text += 'https://vsporeddy.github.io/whodle/#quiz';
+    text += 'https://vsporeddy.github.io/whodle/';
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -1104,62 +1094,11 @@ function Quiz() {
     `https://discord.com/channels/${datasets.text.meta.guild_id}/${msg.channel_id}/${msg.msg_id}`;
 
   // ---------- RENDER ----------
-  if (loadError) return <div style={{ padding: '20px', color: 'white' }}>Couldn't load the quiz data. Try refreshing.</div>;
-  if (!datasets) return <div style={{ padding: '20px', color: 'white' }}>Loading...</div>;
+  if (loadError) return <div style={{ padding: '20px', color: 'white' }}>Couldn't load today's quiz. Try refreshing.</div>;
+  if (!datasets || !items) return <div style={{ padding: '20px', color: 'white' }}>Loading...</div>;
 
-  // 1) USER PICKER
-  if (!items) {
-    return (
-      <div style={styles.container}>
-        <h2 style={{ marginTop: 0, marginBottom: '4px' }}>How well do you know…</h2>
-        {/* <p style={{ color: '#949BA4', marginTop: 0, fontSize: '0.9rem' }}>
-          Pick someone. You'll judge {QUIZ_SIZE} posts: theirs, or someone else's?
-        </p> */}
-        <div style={styles.inputGroup}>
-          <input
-            style={styles.input}
-            placeholder="Search members..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
-          />
-        </div>
-        <div style={styles.quizUserList}>
-          {userList.length === 0 && (
-            <div style={{ padding: '15px', color: '#949BA4', textAlign: 'center' }}>No one matches that.</div>
-          )}
-          {userList.map(u => {
-            const counts = postCounts[u.id] || { total: 0 };
-            const eligible = counts.total >= QUIZ_TARGET_MIN;
-            const best = getBest(u.id);
-            return (
-              <div
-                key={u.id}
-                style={eligible ? styles.dropdownItem : styles.disabledItem}
-                onClick={() => eligible && startQuiz(u)}
-                title={eligible ? `Quiz me on ${u.display_name}` : 'Not enough posts to build a quiz'}
-              >
-                <img src={u.avatar} style={styles.avatarSmall} alt="" />
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: '1.2', flex: 1, minWidth: 0 }}>
-                  <span style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{u.display_name}</span>
-                  <span><small style={{ color: '#949BA4' }}>({u.username})</small></span>
-                </div>
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#949BA4', whiteSpace: 'nowrap' }}>
-                  {!eligible && 'too few posts'}
-                  {best !== null && (
-                    <div style={{ color: '#5865F2', fontWeight: 'bold' }}>Best: {best}/{QUIZ_SIZE}</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // 3) RESULTS
-  if (finished) {
+  // RESULTS (once the last post has been answered and its feedback dismissed)
+  if (finished && !feedback) {
     const rank = getQuizRank(correctCount, items.length);
     const byType = MODES.map(m => {
       const ofType = answers.filter(a => a.type === m);
@@ -1183,7 +1122,6 @@ function Quiz() {
           <h2 style={{ margin: '5px 0 0' }}>{getQuizRankMessage(rank)}</h2>
           <div style={{ fontSize: '1.1rem', marginTop: '10px' }}>
             <strong>{correctCount}</strong> / {items.length} correct
-            {isNewBest && <span style={{ color: '#f0b232', marginLeft: '8px', fontWeight: 'bold' }}>New best! 🌟</span>}
           </div>
           <div style={{ fontSize: '0.8rem', color: '#949BA4', marginTop: '4px' }}>
             {actualTargetCount} of the {items.length} posts were really theirs
@@ -1211,20 +1149,15 @@ function Quiz() {
             <button onClick={handleShare} style={styles.btnPrimary}>
               <Share2 size={18} /> {copied ? 'Copied!' : 'Share Results'}
             </button>
-            <button onClick={() => startQuiz(targetUser)} style={styles.btnSecondary}>
-              <RotateCcw size={18} /> Again
-            </button>
-            <button onClick={backToPicker} style={styles.btnSecondary}>
-              <Users size={18} /> Someone else
-            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // 2) QUESTION
-  const item = items[index];
+  // QUESTION (or feedback for the post just answered)
+  const item = feedback ? items[index - 1] : items[index];
+  const shownIndex = feedback ? index - 1 : index;
   const wrongCount = answers.length - correctCount;
 
   return (
@@ -1234,11 +1167,11 @@ function Quiz() {
         <span>Did <strong>{targetUser.display_name}</strong> post this?</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#949BA4' }}>
-        <span>{index + 1} / {items.length}</span>
+        <span>{shownIndex + 1} / {items.length}</span>
         <span>✅ {correctCount} · ❌ {wrongCount}</span>
       </div>
       <div style={styles.quizProgressTrack}>
-        <div style={{ ...styles.quizProgressFill, width: `${(index / items.length) * 100}%` }} />
+        <div style={{ ...styles.quizProgressFill, width: `${(shownIndex / items.length) * 100}%` }} />
       </div>
 
       <PostDisplay key={item.msg.msg_id} msg={item.msg} users={users} />
@@ -1250,8 +1183,7 @@ function Quiz() {
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>yup that's {targetUser.display_name}</span>
           </button>
           <button style={styles.quizChoiceNo} onClick={() => handleAnswer(false)} title="Shortcut: 2, N, or Right arrow">
-            <X size={18} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>not {targetUser.display_name}</span>
+            <X size={18} /> not {targetUser.display_name}
           </button>
         </div>
       ) : (
@@ -1261,14 +1193,14 @@ function Quiz() {
               {feedback.correct ? 'Correct!' : 'Nope.'}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.95rem' }}>
-              it was actually
+              Posted by
               <img src={feedback.author?.avatar} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="" />
               <strong>{feedback.author?.display_name || 'Unknown'}</strong>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={handleNext} style={styles.btnPrimary} autoFocus>
-              {index + 1 >= items.length ? 'See results' : 'Next →'}
+              {index >= items.length ? 'See results' : 'Next →'}
             </button>
             <a href={getDiscordLink(feedback.msg)} target="_blank" rel="noopener noreferrer" style={{ ...styles.btnSecondary, padding: '12px 16px' }} title="Jump to message">
               <ExternalLink size={18} />
@@ -1276,9 +1208,125 @@ function Quiz() {
           </div>
         </>
       )}
+    </div>
+  );
+}
 
-      <div style={{ marginTop: '20px' }}>
-        <button style={styles.btnDanger} onClick={backToPicker}>QUIT</button>
+// ---------- STATS ----------
+// Per-member knowledge score built from saved Classic rounds and Quiz days in localStorage.
+//   Classic round: 100 for a 1-guess win, 80 / 60 / 40 / 20 for 2-5 guesses, 0 for a loss or skip.
+//   Quiz day:      percent of posts called correctly. Weighs STATS_QUIZ_WEIGHT classic rounds.
+//   Composite:     weighted average of the above.
+const collectStats = () => {
+  const stats = {}; // userId -> { classic: [scores], classicWins, quiz: [scores], quizBest }
+  const entry = (id) => (stats[id] ||= { classic: [], classicWins: 0, quiz: [], quizBest: 0 });
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    let parsed;
+    try { parsed = JSON.parse(localStorage.getItem(key)); } catch { continue; }
+    if (!parsed || typeof parsed !== 'object') continue;
+
+    const classic = key.match(/^whodle_(text|image|url)_(\d+)$/);
+    if (classic) {
+      if (!parsed.gameOver) continue;
+      const guesses = parsed.guesses || [];
+      const won = !parsed.gaveUp && guesses.length > 0 && guesses[guesses.length - 1].correct;
+      // Older saves lack targetId; on a win the last guess is the target
+      const targetId = parsed.targetId || (won ? guesses[guesses.length - 1].user?.id : null);
+      if (!targetId) continue;
+      const e = entry(targetId);
+      e.classic.push(won ? Math.round((MAX_GUESSES + 1 - guesses.length) / MAX_GUESSES * 100) : 0);
+      if (won) e.classicWins += 1;
+      continue;
+    }
+
+    const quiz = key.match(/^whodle_quiz_(\d+)$/);
+    if (quiz) {
+      if (!parsed.gameOver || !parsed.targetId || !Array.isArray(parsed.answers) || parsed.answers.length === 0) continue;
+      const correct = parsed.answers.filter(a => a.correct).length;
+      const pct = Math.round(correct / parsed.answers.length * 100);
+      const e = entry(parsed.targetId);
+      e.quiz.push(pct);
+      e.quizBest = Math.max(e.quizBest, pct);
+    }
+  }
+
+  for (const e of Object.values(stats)) {
+    const weight = e.classic.length + e.quiz.length * STATS_QUIZ_WEIGHT;
+    const sum = e.classic.reduce((s, v) => s + v, 0) + e.quiz.reduce((s, v) => s + v, 0) * STATS_QUIZ_WEIGHT;
+    e.composite = weight > 0 ? Math.round(sum / weight) : 0;
+  }
+  return stats;
+};
+
+const scoreColor = (score) => {
+  if (score >= 80) return '#23a559';
+  if (score >= 50) return '#f0b232';
+  if (score >= 25) return '#e67e22';
+  return '#da373c';
+};
+
+function StatsModal({ onClose }) {
+  const [users, setUsers] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const stats = useMemo(() => collectStats(), []);
+
+  useEffect(() => {
+    fetch(`./${MODE_FILE.text}`)
+      .then(res => res.json())
+      .then(json => setUsers(json.users))
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const rows = useMemo(() => {
+    if (!users) return [];
+    return Object.entries(stats)
+      .map(([id, s]) => ({ id, user: users[id], ...s }))
+      .filter(r => r.user)
+      .sort((a, b) => b.composite - a.composite || a.user.display_name.localeCompare(b.user.display_name, undefined, { sensitivity: 'base' }));
+  }, [users, stats]);
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={styles.helpContent} onClick={(e) => e.stopPropagation()}>
+        <button style={styles.closeBtn} onClick={onClose}>&times;</button>
+        <h2 style={{ marginTop: 0, marginBottom: '4px' }}>How well do you know…</h2>
+        <p style={{ marginTop: 0, fontSize: '0.85rem', color: '#dbdee1', opacity: 0.8 }}>
+          Combined from your Classic rounds and Quiz days on this device.
+        </p>
+
+        {loadError && <p>Couldn't load member data.</p>}
+        {!loadError && !users && <p>Loading...</p>}
+        {users && rows.length === 0 && (
+          <p style={{ color: '#dbdee1' }}>No results yet. Finish a Classic round or a Quiz day and check back.</p>
+        )}
+
+        {rows.length > 0 && (
+          <div style={{ ...styles.quizUserList, maxHeight: 'none', marginTop: 0 }}>
+            {rows.map(r => (
+              <div key={r.id} style={{ ...styles.dropdownItem, cursor: 'default' }}>
+                <img src={r.user.avatar} style={styles.avatarSmall} alt="" />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: '1.3', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{r.user.display_name}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#949BA4' }}>
+                    {r.classic.length > 0 && `🎯 ${r.classicWins}W ${r.classic.length - r.classicWins}L`}
+                    {r.classic.length > 0 && r.quiz.length > 0 && ' · '}
+                    {r.quiz.length > 0 && `${QUIZ_EMOJI} ${r.quizBest}%${r.quiz.length > 1 ? ` best of ${r.quiz.length}` : ''}`}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.3rem', color: scoreColor(r.composite), minWidth: '48px', textAlign: 'right' }} title="Knowledge score (0-100)">
+                  {r.composite}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p style={{ fontSize: '0.75rem', color: '#dbdee1', opacity: 0.7, marginBottom: 0, marginTop: '15px', lineHeight: '1.4' }}>
+          Score 0-100. Classic: 100 for a one-shot win, down to 20 for a five-guess win, 0 for a loss or skip.
+          Quiz: percent correct, weighted {STATS_QUIZ_WEIGHT}× a Classic round.
+        </p>
       </div>
     </div>
   );
