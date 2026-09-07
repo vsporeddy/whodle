@@ -15,6 +15,8 @@ const QUIZ_TYPE_SLOTS = { text: 12, image: 4, url: 4 }; // 60% / 20% / 20%
 // Share of posts that are really the target's: drawn (seeded) per quiz within this range
 const QUIZ_TARGET_MIN = Math.ceil(QUIZ_SIZE * 0.3);
 const QUIZ_TARGET_MAX = Math.floor(QUIZ_SIZE * 0.6);
+// Quiz subject is weighted by post count, capped per mode like the classic pools (MAX_MSGS_PER_USER in filter_data.py)
+const QUIZ_USER_WEIGHT_CAP = 250;
 // Stats: a quiz day is a much bigger sample than one classic round, so it weighs more
 const STATS_QUIZ_WEIGHT = 3;
 // Only a perfect score earns an S; each miss drops one step from there.
@@ -256,14 +258,24 @@ const shuffleInPlace = (arr, rng = Math.random) => {
 // Draws n distinct random items from pool (no mutation of pool)
 const sample = (pool, n, rng = Math.random) => shuffleInPlace([...pool], rng).slice(0, n);
 
-// Today's quiz subject: seeded pick among members with enough posts (sorted by id so every client agrees)
+// Today's quiz subject: seeded pick among members with enough posts, weighted by how much
+// they post (each mode capped at QUIZ_USER_WEIGHT_CAP, like the classic pools).
+// Sorted by id so every client walks the same weights and lands on the same member.
 const pickQuizUser = (datasets, rng) => {
   const counts = getQuizPostCounts(datasets);
+  const weightOf = (u) => MODES.reduce((s, m) => s + Math.min(counts[u.id]?.[m] || 0, QUIZ_USER_WEIGHT_CAP), 0);
   const eligible = Object.values(datasets.text.users)
     .filter(u => (counts[u.id]?.total || 0) >= QUIZ_TARGET_MIN)
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   if (eligible.length === 0) return null;
-  return eligible[Math.floor(rng() * eligible.length)];
+
+  const totalWeight = eligible.reduce((s, u) => s + weightOf(u), 0);
+  let roll = rng() * totalWeight;
+  for (const u of eligible) {
+    roll -= weightOf(u);
+    if (roll < 0) return u;
+  }
+  return eligible[eligible.length - 1]; // float rounding fallback
 };
 
 // Per-user post counts across all datasets: { [userId]: { text, image, url, total } }
