@@ -17,6 +17,11 @@ const QUIZ_TARGET_MIN = Math.ceil(QUIZ_SIZE * 0.3);
 const QUIZ_TARGET_MAX = Math.floor(QUIZ_SIZE * 0.6);
 // Quiz subject is weighted by post count, capped per mode like the classic pools (MAX_MSGS_PER_USER in filter_data.py)
 const QUIZ_USER_WEIGHT_CAP = 250;
+// A member can't be the subject again until this many quiz days have passed
+const QUIZ_NO_REPEAT_WINDOW = 12;
+// Discard the first few draws: nearby dates hash to nearby seeds, and the generator's
+// first output is correlated across nearby seeds (it produced A, B, A, B, A streaks)
+const QUIZ_RNG_WARMUP = 3;
 // Stats: a quiz day is a much bigger sample than one classic round, so it weighs more
 const STATS_QUIZ_WEIGHT = 3;
 // Only a perfect score earns an S; each miss drops one step from there.
@@ -134,15 +139,30 @@ const styles = {
   quizGridCell: { aspectRatio: '1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }
 };
 
-// Seed gen based on Eastern time
-const getDailySeed = () => {
+const hashString = (str) => {
   let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    const char = dateStr.charCodeAt(i);
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return Math.abs(hash);
+};
+
+// Seed gen based on Eastern time
+const getDailySeed = () => hashString(dateStr);
+
+// Same seed as getDailySeed, but for any puzzle number (needed to replay past quiz-day picks)
+const getSeedForPuzzle = (puzzleNum) => {
+  const d = new Date(Date.UTC(2025, 11, 1) + (puzzleNum - 1) * 86400000); // Dec 1, 2025 = #1
+  return hashString(`${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`);
+};
+
+// Warmed-up seeded generator for a quiz day. `salt` separates independent streams (member pick vs post pick).
+const quizRng = (puzzleNum, salt = 0) => {
+  const rng = mulberry32(getSeedForPuzzle(puzzleNum) + QUIZ_SEED_OFFSET + salt);
+  for (let i = 0; i < QUIZ_RNG_WARMUP; i++) rng();
+  return rng;
 };
 
 // Mulberry32 PRNG
@@ -258,10 +278,12 @@ const shuffleInPlace = (arr, rng = Math.random) => {
 // Draws n distinct random items from pool (no mutation of pool)
 const sample = (pool, n, rng = Math.random) => shuffleInPlace([...pool], rng).slice(0, n);
 
-// Today's quiz subject: seeded pick among members with enough posts, weighted by how much
-// they post (each mode capped at QUIZ_USER_WEIGHT_CAP, like the classic pools).
-// Sorted by id so every client walks the same weights and lands on the same member.
-const pickQuizUser = (datasets, rng) => {
+// The quiz subject for a given quiz day: seeded pick among members with enough posts, weighted
+// by how much they post (each mode capped at QUIZ_USER_WEIGHT_CAP, like the classic pools), and
+// never someone who was the subject within the last QUIZ_NO_REPEAT_WINDOW quiz days.
+// The exclusion list is rebuilt by replaying every earlier quiz day from the same seeds, so all
+// clients agree. Members are sorted by id so the weighted walk is identical everywhere.
+const pickQuizUser = (datasets, puzzleNum) => {
   const counts = getQuizPostCounts(datasets);
   const weightOf = (u) => MODES.reduce((s, m) => s + Math.min(counts[u.id]?.[m] || 0, QUIZ_USER_WEIGHT_CAP), 0);
   const eligible = Object.values(datasets.text.users)
@@ -269,13 +291,27 @@ const pickQuizUser = (datasets, rng) => {
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   if (eligible.length === 0) return null;
 
-  const totalWeight = eligible.reduce((s, u) => s + weightOf(u), 0);
-  let roll = rng() * totalWeight;
-  for (const u of eligible) {
-    roll -= weightOf(u);
-    if (roll < 0) return u;
+  const weightedPick = (rng, pool) => {
+    const totalWeight = pool.reduce((s, u) => s + weightOf(u), 0);
+    let roll = rng() * totalWeight;
+    for (const u of pool) {
+      roll -= weightOf(u);
+      if (roll < 0) return u;
+    }
+    return pool[pool.length - 1]; // float rounding fallback
+  };
+
+  // Replay quiz days #1, #3, ... up to this one, carrying the recent-subject window forward
+  const recent = [];
+  let pick = null;
+  for (let p = 1; p <= puzzleNum; p += 2) {
+    const excluded = new Set(recent.map(u => u.id));
+    const pool = eligible.filter(u => !excluded.has(u.id));
+    pick = weightedPick(quizRng(p), pool.length > 0 ? pool : eligible);
+    recent.push(pick);
+    if (recent.length > QUIZ_NO_REPEAT_WINDOW) recent.shift();
   }
-  return eligible[eligible.length - 1]; // float rounding fallback
+  return pick;
 };
 
 // Per-user post counts across all datasets: { [userId]: { text, image, url, total } }
@@ -1020,9 +1056,8 @@ function Quiz({ puzzleNum }) {
     Promise.all(MODES.map(m => fetch(`./${MODE_FILE[m]}`).then(res => res.json())))
       .then(([text, image, url]) => {
         const ds = { text, image, url };
-        const rng = mulberry32(getDailySeed() + QUIZ_SEED_OFFSET);
-        const user = pickQuizUser(ds, rng);
-        const built = user ? buildQuiz(ds, user.id, rng) : null;
+        const user = pickQuizUser(ds, puzzleNum);
+        const built = user ? buildQuiz(ds, user.id, quizRng(puzzleNum, 1)) : null;
         if (!built) { setLoadError(true); return; }
 
         // Restore today's progress (only if it was built for the same member)
@@ -1039,7 +1074,7 @@ function Quiz({ puzzleNum }) {
         setItems(built);
       })
       .catch(() => setLoadError(true));
-  }, [storageKey]);
+  }, [storageKey, puzzleNum]);
 
   const users = datasets?.text.users;
   const index = answers.length;
