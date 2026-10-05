@@ -136,7 +136,8 @@ const styles = {
   quizChoiceNo: { flex: 1, background: '#da373c', color: 'white', border: 'none', padding: '14px 10px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minWidth: 0 },
   quizFeedback: { padding: '15px', borderRadius: '8px', marginBottom: '10px', color: 'white' },
   quizGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', maxWidth: '260px', margin: '15px auto' },
-  quizGridCell: { aspectRatio: '1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }
+  quizGridCell: { aspectRatio: '1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', font: 'inherit' },
+  quizReviewContent: { backgroundColor: '#313338', padding: '20px', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto', textAlign: 'center', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', boxSizing: 'border-box' }
 };
 
 const hashString = (str) => {
@@ -1049,6 +1050,7 @@ function Quiz({ puzzleNum }) {
   const [answers, setAnswers] = useState([]);     // [{ correct, isTarget, type }]
   const [feedback, setFeedback] = useState(null); // { correct, author, msg } for the post just answered
   const [copied, setCopied] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(null); // results page: which post is open for review
 
   const storageKey = `whodle_quiz_${puzzleNum}`;
 
@@ -1123,6 +1125,18 @@ function Quiz({ puzzleNum }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Review overlay keys: Left / Right to step through posts, Escape to close
+  useEffect(() => {
+    if (reviewIndex === null || !items) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setReviewIndex(null);
+      else if (e.key === 'ArrowLeft') setReviewIndex(i => Math.max(0, i - 1));
+      else if (e.key === 'ArrowRight') setReviewIndex(i => Math.min(answers.length - 1, i + 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [reviewIndex, items, answers.length]);
+
   const handleShare = () => {
     const rank = getQuizRank(correctCount, items.length);
     const userEmoji = getUserEmoji(targetUser.username).replace(/\|\|/g, '');
@@ -1176,13 +1190,16 @@ function Quiz({ puzzleNum }) {
 
           <div style={styles.quizGrid}>
             {answers.map((a, i) => (
-              <div
+              <button
                 key={i}
+                type="button"
+                onClick={() => setReviewIndex(i)}
                 style={{ ...styles.quizGridCell, background: a.correct ? '#23a559' : '#da373c' }}
-                title={`#${i + 1}: ${a.correct ? 'correct' : 'wrong'} (${a.type}${a.isTarget ? ', theirs' : ', decoy'})`}
+                title={`#${i + 1}: ${a.correct ? 'correct' : 'wrong'}. Click to review`}
+                aria-label={`Review post ${i + 1} (${a.correct ? 'correct' : 'wrong'})`}
               >
                 {MODE_EMOJI[a.type]}
-              </div>
+              </button>
             ))}
           </div>
 
@@ -1198,6 +1215,52 @@ function Quiz({ puzzleNum }) {
             </button>
           </div>
         </div>
+
+        {/* REVIEW OVERLAY: one answered post at a time */}
+        {reviewIndex !== null && (() => {
+          const reviewed = items[reviewIndex];
+          const a = answers[reviewIndex];
+          const author = users[reviewed.msg.author_id];
+          const guessedTheirs = a.correct ? a.isTarget : !a.isTarget;
+          const atFirst = reviewIndex === 0;
+          const atLast = reviewIndex === answers.length - 1;
+          const navBtn = (disabled) => ({ ...styles.btnSecondary, padding: '10px 16px', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'default' : 'pointer' });
+          return (
+            <div style={styles.modalOverlay} onClick={() => setReviewIndex(null)}>
+              <div style={styles.quizReviewContent} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Post ${reviewIndex + 1} of ${items.length}`}>
+                <button style={styles.closeBtn} onClick={() => setReviewIndex(null)} aria-label="Close review">&times;</button>
+                <div style={{ fontSize: '0.85rem', color: '#949BA4', marginBottom: '12px' }}>
+                  {MODE_EMOJI[a.type]} Post {reviewIndex + 1} / {items.length}
+                </div>
+
+                <PostDisplay key={reviewed.msg.msg_id} msg={reviewed.msg} users={users} />
+
+                <div style={{ ...styles.quizFeedback, background: a.correct ? '#23a559' : '#da373c' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '4px' }}>
+                    {a.correct ? 'Correct!' : 'Nope.'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                    Posted by
+                    <img src={author?.avatar} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="" />
+                    <strong>{author?.display_name || 'Unknown'}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button style={navBtn(atFirst)} disabled={atFirst} onClick={() => setReviewIndex(reviewIndex - 1)} title="Previous (Left arrow)">
+                    <ArrowLeft size={18} />
+                  </button>
+                  <a href={getDiscordLink(reviewed.msg)} target="_blank" rel="noopener noreferrer" style={{ ...styles.btnSecondary, padding: '10px 16px' }} title="Jump to message">
+                    <ExternalLink size={18} />
+                  </a>
+                  <button style={navBtn(atLast)} disabled={atLast} onClick={() => setReviewIndex(reviewIndex + 1)} title="Next (Right arrow)">
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
