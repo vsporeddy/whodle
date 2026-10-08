@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Share2, ExternalLink, CircleHelp, BarChart3, X } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Share2, ExternalLink, CircleHelp, BarChart3, X, History } from 'lucide-react';
 
 // CONFIGURATION
 const MAX_GUESSES = 5;
 const MODES = ['text', 'image', 'url'];
+// How many past days players can go back and play
+const ARCHIVE_DAYS = 7;
 
 // QUIZ MODE ("How well do you know X?") — runs every other day, alternating with classic.
 // Odd puzzle numbers are quiz days (puzzle #281 on 9/7/2026 is a quiz day).
@@ -137,6 +139,8 @@ const styles = {
   quizFeedback: { padding: '15px', borderRadius: '8px', marginBottom: '10px', color: 'white' },
   quizGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', maxWidth: '260px', margin: '15px auto' },
   quizGridCell: { aspectRatio: '1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', font: 'inherit' },
+  archiveBanner: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: '#2b2d31', borderLeft: '4px solid #f0b232', borderRadius: '4px', padding: '8px 12px', marginBottom: '16px', fontSize: '0.9rem', color: '#dbdee1', flexWrap: 'wrap' },
+  archiveBackBtn: { background: '#4f545c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' },
   quizReviewContent: { backgroundColor: '#313338', padding: '20px', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto', textAlign: 'center', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', boxSizing: 'border-box' }
 };
 
@@ -153,11 +157,22 @@ const hashString = (str) => {
 // Seed gen based on Eastern time
 const getDailySeed = () => hashString(dateStr);
 
-// Same seed as getDailySeed, but for any puzzle number (needed to replay past quiz-day picks)
-const getSeedForPuzzle = (puzzleNum) => {
-  const d = new Date(Date.UTC(2025, 11, 1) + (puzzleNum - 1) * 86400000); // Dec 1, 2025 = #1
-  return hashString(`${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`);
+// Calendar date of a puzzle number (Dec 1, 2025 = #1), as a UTC Date
+const getDateForPuzzle = (puzzleNum) => new Date(Date.UTC(2025, 11, 1) + (puzzleNum - 1) * 86400000);
+
+// Same format as dateStr ("10/8/2026"), for any puzzle number
+const getDateStrForPuzzle = (puzzleNum) => {
+  const d = getDateForPuzzle(puzzleNum);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
 };
+
+// Short label for the archive list, e.g. "Wed, Oct 7"
+const formatPuzzleDate = (puzzleNum) => getDateForPuzzle(puzzleNum).toLocaleDateString('en-US', {
+  timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric'
+});
+
+// Same seed as getDailySeed, but for any puzzle number (archive days, replaying past quiz-day picks)
+const getSeedForPuzzle = (puzzleNum) => hashString(getDateStrForPuzzle(puzzleNum));
 
 // Warmed-up seeded generator for a quiz day. `salt` separates independent streams (member pick vs post pick).
 const quizRng = (puzzleNum, salt = 0) => {
@@ -182,6 +197,29 @@ const getPuzzleNumber = () => {
   const start = Date.UTC(2025, 11, 1); // Dec 1, 2025
   const diffDays = Math.floor((current - start) / (1000 * 60 * 60 * 24));
   return Math.max(1, diffDays + 1);
+};
+
+// Daily round order for classic days (seeded per puzzle, so archive days keep their own order)
+const getShuffledModes = (puzzleNum) => {
+  const rng = mulberry32(getSeedForPuzzle(puzzleNum));
+  const modes = [...MODES];
+  for (let i = modes.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [modes[i], modes[j]] = [modes[j], modes[i]];
+  }
+  return modes;
+};
+
+// A classic save is only trusted if it was made for the message the puzzle shows now.
+// Data refreshes or algorithm changes can swap a past day's message; then the old guesses are stale.
+const isClassicSaveValid = (saved, msg) => {
+  if (!saved || !msg) return false;
+  if (saved.msgId) return saved.msgId === msg.msg_id;
+  if (saved.targetId) return saved.targetId === msg.author_id;
+  // Oldest saves recorded neither; a win still tells us who the answer was
+  const g = saved.guesses || [];
+  const won = !saved.gaveUp && g.length > 0 && g[g.length - 1].correct;
+  return won ? g[g.length - 1].user?.id === msg.author_id : true;
 };
 
 const getNextDefaultEmoji = (mode) => {
@@ -439,97 +477,66 @@ const generateGridString = (guessesArray, gaveUp = false, mode = 'text') => {
 };
 
 export default function App() {
-  const shuffledModes = useMemo(() => {
-    const seed = getDailySeed();
-    const rng = mulberry32(seed);
-    const modes = [...MODES];
-    // Fisher-Yates shuffle with seeded RNG
-    for (let i = modes.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [modes[i], modes[j]] = [modes[j], modes[i]];
-    }
-    return modes;
-  }, []);
-
-  const [currentMode, setCurrentMode] = useState(() => {
-    const puzzleNum = getPuzzleNumber();
-    for (const m of shuffledModes) {
-      const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
-      if (!saved || !JSON.parse(saved).gameOver) return m;
-    }
-    return shuffledModes[shuffledModes.length - 1]; // all modes complete, show last mode
-  });
+  const todayNum = getPuzzleNumber();
+  const [puzzleNum, setPuzzleNum] = useState(todayNum);
+  const isArchive = puzzleNum !== todayNum;
 
   const [showHelp, setShowHelp] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
 
-  const currentModeIndex = shuffledModes.indexOf(currentMode);
-  const isLastMode = currentMode === shuffledModes[shuffledModes.length - 1];
-  const advanceMode = () => setCurrentMode(shuffledModes[currentModeIndex + 1]);
+  const openPuzzle = (p) => {
+    setPuzzleNum(p);
+    setShowArchive(false);
+    window.scrollTo({ top: 0 });
+  };
 
-  const puzzleNum = getPuzzleNumber();
-  const quizDay = isQuizDay(puzzleNum);
+  const iconStyle = { display: 'inline-flex', cursor: 'pointer', color: '#555' };
 
   return (
     <div style={styles.container}>
       {/* HEADER */}
       <div style={styles.header}>
-        <span title="Stats: how well do you know everyone?" style={{ display: 'inline-flex', cursor: 'pointer', color: '#555' }} onClick={() => setShowStats(true)}>
-          <BarChart3 size={24} />
-        </span>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <span title="Stats: how well do you know everyone?" style={iconStyle} onClick={() => setShowStats(true)}>
+            <BarChart3 size={24} />
+          </span>
+          <span title={`Archive: play the last ${ARCHIVE_DAYS} days`} style={iconStyle} onClick={() => setShowArchive(true)}>
+            <History size={24} />
+          </span>
+        </div>
         <h1 style={styles.title}>
           {isAprilFools ? 'WHOMSTDLE' : 'WHODLE'}{' '}
           <span style={{ fontSize: '0.8em', opacity: 0.5, letterSpacing: '2px' }}>#{puzzleNum}</span>
         </h1>
-        <CircleHelp
-          size={24}
-          style={{ cursor: 'pointer', color: '#555' }}
-          onClick={() => setShowHelp(true)}
-        />
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <span style={{ width: '24px' }} />
+          <CircleHelp
+            size={24}
+            style={{ cursor: 'pointer', color: '#555' }}
+            onClick={() => setShowHelp(true)}
+          />
+        </div>
       </div>
 
-      {/* MODE PROGRESS INDICATOR */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
-        {quizDay ? (
-          <span title="quiz day" style={{ fontSize: '2.5rem' }}>{QUIZ_EMOJI}</span>
-        ) : (() => {
-          const activeMode = shuffledModes.find(m => {
-            const s = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
-            return !s || !JSON.parse(s).gameOver;
-          }) ?? shuffledModes[shuffledModes.length - 1];
-          return shuffledModes.map(m => {
-            const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
-            const isDone = saved && JSON.parse(saved).gameOver;
-            const isCurrent = m === currentMode;
-            const isClickable = (isDone || m === activeMode) && !isCurrent;
-            return (
-              <React.Fragment key={m}>
-                <span
-                  title={m}
-                  onClick={() => isClickable && setCurrentMode(m)}
-                  style={{
-                    opacity: isCurrent ? 1 : isDone || m === activeMode ? 1 : 0.25,
-                    fontSize: isCurrent ? '2.5rem' : '1.1rem',
-                    transition: 'all 0.2s',
-                    cursor: isClickable ? 'pointer' : 'default',
-                  }}
-                >
-                  {MODE_EMOJI[m]}
-                </span>
-              </React.Fragment>
-            );
-          });
-        })()}
-      </div>
+      {/* ARCHIVE BANNER */}
+      {isArchive && (
+        <div style={styles.archiveBanner}>
+          <span>Archive: {formatPuzzleDate(puzzleNum)}</span>
+          <button style={styles.archiveBackBtn} onClick={() => openPuzzle(todayNum)}>Back to today</button>
+        </div>
+      )}
 
-      {quizDay ? (
-        <Quiz puzzleNum={puzzleNum} />
-      ) : (
-        <Game
-          key={currentMode}
-          mode={currentMode}
-          shuffledModes={shuffledModes}
-          onNextRound={!isLastMode ? advanceMode : null}
+      {/* Keyed by puzzle so switching days starts that day's view fresh */}
+      <Day key={puzzleNum} puzzleNum={puzzleNum} />
+
+      {/* ARCHIVE MODAL */}
+      {showArchive && (
+        <ArchiveModal
+          todayNum={todayNum}
+          currentNum={puzzleNum}
+          onPick={openPuzzle}
+          onClose={() => setShowArchive(false)}
         />
       )}
 
@@ -545,7 +552,7 @@ export default function App() {
             <h2 style={{ marginTop: 0 }}>How to Play</h2>
             <p>A new puzzle is available every day at <strong>Midnight EST</strong>. Days alternate between <strong>Classic</strong> and <strong>Quiz</strong>.</p>
 
-            <h3>{MODE_EMOJI.text}{MODE_EMOJI.image}{MODE_EMOJI.url} Classic</h3>
+            <h3>Classic</h3>
             <p>Guess which server member sent the message, image, or URL (three rounds played in order).</p>
             <ul style={{ paddingLeft: '20px' }}>
               <li>You have <strong>5 guesses</strong> per round.</li>
@@ -553,11 +560,14 @@ export default function App() {
               <li>Use <strong>Skip</strong> to skip a round and see the answer (counts as a loss).</li>
             </ul>
 
-            <h3>{QUIZ_EMOJI} Quiz</h3>
+            <h3>Quiz</h3>
             <p><strong>"How well do you know…?"</strong> One member is picked for the day. Judge {QUIZ_SIZE} posts one at a time: did they post it, or did someone else? Everyone gets the same member and the same posts.</p>
 
             <h3><BarChart3 size={18} style={{ verticalAlign: 'middle' }} /> Stats</h3>
             <p>Tap the chart icon to see how well you know each member, combining your Classic and Quiz results.</p>
+
+            <h3><History size={18} style={{ verticalAlign: 'middle' }} /> Archive</h3>
+            <p>Missed a day? Tap the clock icon to play any puzzle from the last {ARCHIVE_DAYS} days.</p>
 
             <h3>Clues Legend</h3>
             <table style={styles.legendTable}>
@@ -680,7 +690,7 @@ function UrlPreview({ url, preview }) {
   );
 }
 
-function Game({ mode, shuffledModes, onNextRound }) {
+function Game({ mode, puzzleNum, shuffledModes, onNextRound }) {
   const [data, setData] = useState(null);
   const [targetMsg, setTargetMsg] = useState(null);
   const [guesses, setGuesses] = useState([]);
@@ -690,8 +700,8 @@ function Game({ mode, shuffledModes, onNextRound }) {
   const [copied, setCopied] = useState(false);
   const [combinedRank, setCombinedRank] = useState(null);
 
-  const puzzleNum = getPuzzleNumber();
   const storageKey = `whodle_${mode}_${puzzleNum}`;
+  const isArchive = puzzleNum !== getPuzzleNumber();
 
   useEffect(() => {
     fetch(`./${MODE_FILE[mode]}`)
@@ -703,13 +713,13 @@ function Game({ mode, shuffledModes, onNextRound }) {
         const msgPool = json.messages;
 
         // Holiday overrides
-        const override = HOLIDAY_OVERRIDES[dateStr];
+        const override = HOLIDAY_OVERRIDES[getDateStrForPuzzle(puzzleNum)];
         if (override && override[mode]) {
           chosenMsg = json.messages.find(m => m.msg_id === override[mode]) || null;
         }
 
         if (!chosenMsg) {
-          const seed = getDailySeed() + MODE_SEED_OFFSET[mode];
+          const seed = getSeedForPuzzle(puzzleNum) + MODE_SEED_OFFSET[mode];
           const rng = mulberry32(seed);
           const randIndex = Math.floor(rng() * msgPool.length);
           chosenMsg = msgPool[randIndex];
@@ -717,21 +727,26 @@ function Game({ mode, shuffledModes, onNextRound }) {
 
         setTargetMsg(chosenMsg);
 
+        // Restore progress only if it was made for this exact message. If the data or the
+        // algorithm changed since, the save is stale; it's dropped and overwritten on the next persist.
         const savedState = localStorage.getItem(storageKey);
         if (savedState) {
           const parsed = JSON.parse(savedState);
-          setGuesses(parsed.guesses);
-          setGameOver(parsed.gameOver);
-          if (parsed.gaveUp) setGaveUp(true);
+          if (isClassicSaveValid(parsed, chosenMsg)) {
+            setGuesses(parsed.guesses);
+            setGameOver(parsed.gameOver);
+            if (parsed.gaveUp) setGaveUp(true);
+          }
         }
       });
-  }, [mode, storageKey]);
+  }, [mode, puzzleNum, storageKey]);
 
   useEffect(() => {
     if (!targetMsg) return;
-    const seed = getDailySeed();
-    // targetId lets the stats screen attribute this round to a member even on a loss
-    localStorage.setItem(storageKey, JSON.stringify({ seed, guesses, gameOver, gaveUp, targetId: targetMsg.author_id }));
+    const seed = getSeedForPuzzle(puzzleNum);
+    // targetId lets the stats screen attribute this round to a member even on a loss;
+    // msgId lets a later load tell whether this save still matches the puzzle
+    localStorage.setItem(storageKey, JSON.stringify({ seed, guesses, gameOver, gaveUp, targetId: targetMsg.author_id, msgId: targetMsg.msg_id }));
 
     // Update combined rank if all modes are complete
     const allComplete = MODES.every(m => {
@@ -829,7 +844,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
   const handleCombinedShare = () => {
     const rank = combinedRank || getRank(shuffledModes, puzzleNum);
 
-    let text = `${isAprilFools ? 'WHOMSTDLE' : 'WHODLE'} #${puzzleNum}\n`;
+    let text = `${isAprilFools ? 'WHOMSTDLE' : 'WHODLE'} #${puzzleNum}${isArchive ? ' (archive)' : ''}\n`;
 
     for (const m of shuffledModes) {
       const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
@@ -852,7 +867,7 @@ function Game({ mode, shuffledModes, onNextRound }) {
     if (guesses.length === 0 && !gaveUp) return "";
     const isWin = !gaveUp && guesses.length > 0 && guesses[guesses.length - 1].correct;
     if (isWin && guesses.length === 1) return "One shot! 🌟";
-    const seed = getDailySeed();
+    const seed = getSeedForPuzzle(puzzleNum);
     const list = isWin ? WIN_MESSAGES : LOSE_MESSAGES;
     return list[seed % list.length];
   };
@@ -1053,6 +1068,7 @@ function Quiz({ puzzleNum }) {
   const [reviewIndex, setReviewIndex] = useState(null); // results page: which post is open for review
 
   const storageKey = `whodle_quiz_${puzzleNum}`;
+  const isArchive = puzzleNum !== getPuzzleNumber();
 
   useEffect(() => {
     Promise.all(MODES.map(m => fetch(`./${MODE_FILE[m]}`).then(res => res.json())))
@@ -1087,12 +1103,12 @@ function Quiz({ puzzleNum }) {
   useEffect(() => {
     if (!items || !targetUser) return;
     localStorage.setItem(storageKey, JSON.stringify({
-      seed: getDailySeed(),
+      seed: getSeedForPuzzle(puzzleNum),
       targetId: targetUser.id,
       answers,
       gameOver: answers.length >= items.length
     }));
-  }, [answers, items, targetUser, storageKey]);
+  }, [answers, items, targetUser, storageKey, puzzleNum]);
 
   const handleAnswer = (guessIsTarget) => {
     if (!items || feedback || finished) return;
@@ -1140,7 +1156,7 @@ function Quiz({ puzzleNum }) {
   const handleShare = () => {
     const rank = getQuizRank(correctCount, items.length);
     const userEmoji = getUserEmoji(targetUser.username).replace(/\|\|/g, '');
-    let text = `${isAprilFools ? 'WHOMSTDLE' : 'WHODLE'} #${puzzleNum}\n`;
+    let text = `${isAprilFools ? 'WHOMSTDLE' : 'WHODLE'} #${puzzleNum}${isArchive ? ' (archive)' : ''}\n`;
     text += `**${targetUser.display_name}** ${userEmoji}\n`;
     text += `${generateQuizGridString(answers)}\n`;
     text += `Score: ${correctCount}/${items.length}\n`;
@@ -1165,7 +1181,6 @@ function Quiz({ puzzleNum }) {
       const ofType = answers.filter(a => a.type === m);
       return { mode: m, correct: ofType.filter(a => a.correct).length, total: ofType.length };
     }).filter(t => t.total > 0);
-    const actualTargetCount = items.filter(i => i.isTarget).length;
 
     return (
       <div style={styles.container}>
@@ -1183,9 +1198,6 @@ function Quiz({ puzzleNum }) {
           <h2 style={{ margin: '5px 0 0' }}>{getQuizRankMessage(rank)}</h2>
           <div style={{ fontSize: '1.1rem', marginTop: '10px' }}>
             <strong>{correctCount}</strong> / {items.length} correct
-          </div>
-          <div style={{ fontSize: '0.8rem', color: '#949BA4', marginTop: '4px' }}>
-            {actualTargetCount} of the {items.length} posts were really theirs
           </div>
 
           <div style={styles.quizGrid}>
@@ -1221,7 +1233,6 @@ function Quiz({ puzzleNum }) {
           const reviewed = items[reviewIndex];
           const a = answers[reviewIndex];
           const author = users[reviewed.msg.author_id];
-          const guessedTheirs = a.correct ? a.isTarget : !a.isTarget;
           const atFirst = reviewIndex === 0;
           const atLast = reviewIndex === answers.length - 1;
           const navBtn = (disabled) => ({ ...styles.btnSecondary, padding: '10px 16px', opacity: disabled ? 0.4 : 1, cursor: disabled ? 'default' : 'pointer' });
@@ -1437,6 +1448,173 @@ function StatsModal({ onClose }) {
           Score 0-100. Classic: 100 for a one-shot win, down to 20 for a five-guess win, 0 for a loss or skip.
           Quiz: percent correct, weighted {STATS_QUIZ_WEIGHT}× a Classic round.
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------- ONE DAY'S PUZZLE ----------
+// The three classic rounds or the quiz, for any puzzle number (today or an archive day)
+function Day({ puzzleNum }) {
+  const shuffledModes = useMemo(() => getShuffledModes(puzzleNum), [puzzleNum]);
+
+  const [currentMode, setCurrentMode] = useState(() => {
+    for (const m of shuffledModes) {
+      const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+      if (!saved || !JSON.parse(saved).gameOver) return m;
+    }
+    return shuffledModes[shuffledModes.length - 1]; // all modes complete, show last mode
+  });
+
+  const currentModeIndex = shuffledModes.indexOf(currentMode);
+  const isLastMode = currentMode === shuffledModes[shuffledModes.length - 1];
+  const advanceMode = () => setCurrentMode(shuffledModes[currentModeIndex + 1]);
+  const quizDay = isQuizDay(puzzleNum);
+
+  return (
+    <>
+      {/* MODE PROGRESS INDICATOR */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '24px', fontSize: '1.2rem' }}>
+        {quizDay ? (
+          <span title="quiz day" style={{ fontSize: '2.5rem' }}></span>
+        ) : (() => {
+          const activeMode = shuffledModes.find(m => {
+            const s = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+            return !s || !JSON.parse(s).gameOver;
+          }) ?? shuffledModes[shuffledModes.length - 1];
+          return shuffledModes.map(m => {
+            const saved = localStorage.getItem(`whodle_${m}_${puzzleNum}`);
+            const isDone = saved && JSON.parse(saved).gameOver;
+            const isCurrent = m === currentMode;
+            const isClickable = (isDone || m === activeMode) && !isCurrent;
+            return (
+              <React.Fragment key={m}>
+                <span
+                  title={m}
+                  onClick={() => isClickable && setCurrentMode(m)}
+                  style={{
+                    opacity: isCurrent ? 1 : isDone || m === activeMode ? 1 : 0.25,
+                    fontSize: isCurrent ? '2.5rem' : '1.1rem',
+                    transition: 'all 0.2s',
+                    cursor: isClickable ? 'pointer' : 'default',
+                  }}
+                >
+                  {MODE_EMOJI[m]}
+                </span>
+              </React.Fragment>
+            );
+          });
+        })()}
+      </div>
+
+      {quizDay ? (
+        <Quiz puzzleNum={puzzleNum} />
+      ) : (
+        <Game
+          key={currentMode}
+          mode={currentMode}
+          puzzleNum={puzzleNum}
+          shuffledModes={shuffledModes}
+          onNextRound={!isLastMode ? advanceMode : null}
+        />
+      )}
+    </>
+  );
+}
+
+// ---------- ARCHIVE ----------
+// Progress label for a day in the archive list, read from that day's saves
+const getDayStatus = (puzzleNum) => {
+  const read = (key) => {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  };
+
+  if (isQuizDay(puzzleNum)) {
+    const s = read(`whodle_quiz_${puzzleNum}`);
+    const answered = Array.isArray(s?.answers) ? s.answers.length : 0;
+    if (s?.gameOver && answered > 0) {
+      return { done: true, label: `Rank ${getQuizRank(s.answers.filter(a => a.correct).length, answered)}` };
+    }
+    return answered > 0 ? { done: false, label: `${answered}/${QUIZ_SIZE}` } : { done: false, label: '' };
+  }
+
+  const saves = MODES.map(m => read(`whodle_${m}_${puzzleNum}`));
+  const finished = saves.filter(s => s?.gameOver).length;
+  if (finished === MODES.length) {
+    const rank = getRank(getShuffledModes(puzzleNum), puzzleNum);
+    return { done: true, label: rank ? `Rank ${rank}` : 'Done' };
+  }
+  const started = saves.some(s => s?.gameOver || (s?.guesses || []).length > 0);
+  return started ? { done: false, label: `${finished}/${MODES.length} rounds` } : { done: false, label: '' };
+};
+
+function ArchiveModal({ todayNum, currentNum, onPick, onClose }) {
+  const days = [];
+  for (let p = todayNum; p >= Math.max(1, todayNum - ARCHIVE_DAYS); p--) days.push(p);
+
+  // Each quiz day's member, so their avatar can stand in for the day's icon
+  const [quizMembers, setQuizMembers] = useState({}); // puzzleNum -> user
+  useEffect(() => {
+    const quizDays = [];
+    for (let p = todayNum; p >= Math.max(1, todayNum - ARCHIVE_DAYS); p--) if (isQuizDay(p)) quizDays.push(p);
+    Promise.all(MODES.map(m => fetch(`./${MODE_FILE[m]}`).then(res => res.json())))
+      .then(([text, image, url]) => {
+        const ds = { text, image, url };
+        const members = {};
+        for (const p of quizDays) members[p] = pickQuizUser(ds, p);
+        setQuizMembers(members);
+      })
+      .catch(() => { }); // keep the brain placeholder if the data can't load
+  }, [todayNum]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={styles.helpContent} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Archive">
+        <button style={styles.closeBtn} onClick={onClose} aria-label="Close archive">&times;</button>
+        <h2 style={{ marginTop: 0, marginBottom: '4px' }}>Archive</h2>
+
+        <div style={{ ...styles.quizUserList, maxHeight: 'none', marginTop: 0 }}>
+          {days.map(p => {
+            const status = getDayStatus(p);
+            const isCurrent = p === currentNum;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPick(p)}
+                style={{
+                  ...styles.dropdownItem,
+                  width: '100%', border: 'none', borderBottom: '1px solid #1e1f22', font: 'inherit', textAlign: 'left',
+                  background: isCurrent ? '#3f4147' : 'transparent'
+                }}
+              >
+                <span
+                  style={{ width: '30px', height: '30px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}
+                  title={isQuizDay(p) ? (quizMembers[p] ? `Quiz: ${quizMembers[p].display_name}` : 'Quiz') : 'Classic'}
+                >
+                  {!isQuizDay(p) ? '❓'
+                    : quizMembers[p] ? <img src={quizMembers[p].avatar} style={styles.avatarSmall} alt="" />
+                      : QUIZ_EMOJI}
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: '1.3', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 'bold' }}>
+                    #{p}{p === todayNum && <span style={{ color: '#5865F2', marginLeft: '6px' }}>Today</span>}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#949BA4' }}>{formatPuzzleDate(p)}</span>
+                </div>
+                <span style={{ fontSize: '0.8rem', fontWeight: status.done ? 'bold' : 'normal', color: status.done ? '#23a559' : '#949BA4', whiteSpace: 'nowrap' }}>
+                  {status.label || 'Not played'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
